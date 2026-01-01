@@ -189,16 +189,19 @@ const WishingTree: React.FC = () => {
             {/* 
           Main Interaction Button 
       */}
-            <div className="relative z-50 mb-4 sticky top-4">
+            {/* 
+          Main Interaction Button (Moved to Top Right Fixed)
+      */}
+            <div className="fixed top-4 right-4 z-[60]">
                 <button
                     onClick={() => {
                         setNickname('');
                         setMessage('');
                         setIsOpen(true);
                     }}
-                    className="px-8 py-3 bg-gradient-to-r from-red-600 to-red-800 text-white text-lg font-bold rounded-full shadow-[0_0_15px_rgba(220,38,38,0.6)] hover:scale-105 transition-all border border-yellow-400/30"
+                    className="px-6 py-2 md:px-8 md:py-3 bg-gradient-to-r from-red-600 to-red-800 text-white text-sm md:text-lg font-bold rounded-full shadow-[0_0_15px_rgba(220,38,38,0.6)] hover:scale-105 transition-all border border-yellow-400/30 flex items-center gap-2"
                 >
-                    ✨ Bir Dilek As 🎄
+                    <span>✨</span> <span className="hidden md:inline">Bir Dilek As</span><span className="md:hidden">Dilek As</span> <span>🎄</span>
                 </button>
             </div>
 

@@ -42,13 +42,21 @@ function App() {
             </div>
 
             {/* Wishing Tree Section */}
-            <div id="wishing-tree" className="relative z-20 container mx-auto mb-20 px-4 pt-10">
+            <div id="wishing-tree" className="relative z-20 container mx-auto mb-10 px-4 pt-10">
                 <div className="bg-white/10 backdrop-blur-md rounded-3xl p-8 border border-white/20 shadow-2xl">
                     <div className="text-center mb-10">
                         <h2 className="text-4xl md:text-5xl font-script text-white drop-shadow-md mb-4">🎄 Dilek Ağacı</h2>
                         <p className="text-blue-100 text-lg">2026 için güzel dileklerini buraya as, herkes okusun!</p>
                     </div>
                     <WishingTree />
+                </div>
+
+                {/* Scroll Indicator for Clip Studio */}
+                <div className="flex flex-col items-center mt-8 animate-bounce">
+                    <span className="text-yellow-300 font-bold text-xl drop-shadow-md mb-2">👇 Aşağıda Sürpriz Var! 👇</span>
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={3} stroke="currentColor" className="w-8 h-8 text-yellow-300">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+                    </svg>
                 </div>
             </div>
 

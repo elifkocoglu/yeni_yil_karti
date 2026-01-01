@@ -43,7 +43,7 @@ const MusicPlayer: React.FC = () => {
         <div className="fixed bottom-4 right-4 z-50">
             <button
                 onClick={togglePlay}
-                className="flex items-center justify-center gap-2 bg-white/10 backdrop-blur-md border border-white/20 p-3 rounded-full text-white hover:bg-white/20 transition-all shadow-lg group pr-5"
+                className="flex items-center justify-center gap-2 bg-gradient-to-r from-pink-500 to-rose-600 border-2 border-white/50 p-3 rounded-full text-white hover:scale-105 transition-all shadow-lg group pr-5 animate-[pulse_3s_infinite]"
                 title={isPlaying ? "Müziği Durdur" : "Müziği Başlat"}
             >
                 <div className="p-1">
