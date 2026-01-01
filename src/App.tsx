@@ -1,6 +1,7 @@
 import Fireworks from './components/Fireworks';
 import Snowfall from './components/Snowfall';
 import Greeting from './components/Greeting';
+import MusicPlayer from './components/MusicPlayer';
 
 function App() {
     return (
@@ -10,6 +11,8 @@ function App() {
 
             <Snowfall />
             <Fireworks />
+
+            <MusicPlayer />
 
             {/* Main Content */}
             <Greeting />

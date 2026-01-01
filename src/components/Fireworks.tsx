@@ -87,13 +87,25 @@ const Fireworks: React.FC = () => {
 
         loop();
 
+        const handleClick = (e: MouseEvent) => {
+            createFirework(e.clientX, e.clientY);
+        };
+
+        window.addEventListener('mousedown', handleClick);
+        window.addEventListener('touchstart', (e) => {
+            if (e.touches.length > 0) {
+                createFirework(e.touches[0].clientX, e.touches[0].clientY);
+            }
+        });
+
         return () => {
             window.removeEventListener('resize', resize);
+            window.removeEventListener('mousedown', handleClick);
             cancelAnimationFrame(animationId);
         };
     }, []);
 
-    return <canvas ref={canvasRef} className="fixed inset-0 pointer-events-none z-10" />;
+    return <canvas ref={canvasRef} className="fixed inset-0 pointer-events-none z-10" style={{ pointerEvents: 'auto', cursor: 'pointer' }} />;
 };
 
 export default Fireworks;
