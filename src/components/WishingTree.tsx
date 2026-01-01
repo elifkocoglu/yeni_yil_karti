@@ -191,7 +191,11 @@ const WishingTree: React.FC = () => {
       */}
             <div className="relative z-50 mb-4 sticky top-4">
                 <button
-                    onClick={() => setIsOpen(true)}
+                    onClick={() => {
+                        setNickname('');
+                        setMessage('');
+                        setIsOpen(true);
+                    }}
                     className="px-8 py-3 bg-gradient-to-r from-red-600 to-red-800 text-white text-lg font-bold rounded-full shadow-[0_0_15px_rgba(220,38,38,0.6)] hover:scale-105 transition-all border border-yellow-400/30"
                 >
                     ✨ Bir Dilek As 🎄

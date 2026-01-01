@@ -2,6 +2,7 @@ import React, { useState, useRef } from 'react';
 import PhotoUploader from './PhotoUploader';
 
 // Types for our Particle Engine
+// Types for our Particle Engine
 interface Particle {
     x: number;
     y: number;
@@ -10,6 +11,10 @@ interface Particle {
     life: number;
     color: string;
     size: number;
+    // New properties
+    angle: number;
+    speed: number;
+    shape: 'star' | 'snow';
 }
 
 const ClipStudio: React.FC = () => {
@@ -23,19 +28,74 @@ const ClipStudio: React.FC = () => {
         setPhotos((prev) => [...prev, ...newPhotos]);
     };
 
+    // --- HELPER FUNCTIONS FOR PARTICLES ---
+    const updateParticle = (p: Particle) => {
+        p.x += Math.cos(p.angle) * p.speed;
+        p.y += Math.sin(p.angle) * p.speed;
+        p.life -= 0.015; // Logner life
+        p.size *= 0.96; // Slower shrink
+    };
+
+    const drawParticle = (ctx: CanvasRenderingContext2D, p: Particle) => {
+        ctx.save();
+        ctx.translate(p.x, p.y);
+        // Rotate mainly for movement feel
+        ctx.rotate(p.angle * 2);
+
+        ctx.fillStyle = p.color;
+        ctx.globalAlpha = Math.max(0, p.life);
+
+        // Draw distinct shapes
+        if (p.shape === 'star') {
+            // Draw a bigger, simpler star
+            const spikes = 5;
+            const outerRadius = p.size * 2.5; // Bigger
+            const innerRadius = p.size * 1.0;
+
+            ctx.beginPath();
+            for (let i = 0; i < spikes * 2; i++) {
+                const r = (i % 2 === 0) ? outerRadius : innerRadius;
+                const a = (Math.PI / spikes) * i;
+                ctx.lineTo(Math.cos(a) * r, Math.sin(a) * r);
+            }
+            ctx.closePath();
+            ctx.fill();
+
+        } else {
+            // Snowflake (Cross/Star shape)
+            const s = p.size * 2.0;
+            ctx.lineWidth = s * 0.4;
+            ctx.strokeStyle = p.color;
+            ctx.lineCap = 'round';
+
+            ctx.beginPath();
+            ctx.moveTo(-s, 0); ctx.lineTo(s, 0);
+            ctx.moveTo(0, -s); ctx.lineTo(0, s);
+            // Diagonals
+            ctx.moveTo(-s * 0.7, -s * 0.7); ctx.lineTo(s * 0.7, s * 0.7);
+            ctx.moveTo(s * 0.7, -s * 0.7); ctx.lineTo(-s * 0.7, s * 0.7);
+            ctx.stroke();
+        }
+
+        ctx.restore();
+    };
+
     // --- PARTICLE ENGINE LOGIC ---
     const createParticles = (width: number, height: number): Particle[] => {
         const particles: Particle[] = [];
-        const count = 300; // Manageable count for recording performance
+        const count = 400; // Fewer but larger
         for (let i = 0; i < count; i++) {
             particles.push({
                 x: Math.random() * width,
                 y: Math.random() * height,
-                vx: (Math.random() - 0.5) * 15,
-                vy: (Math.random() - 0.5) * 15,
+                vx: 0, // Unused in new logic but kept for type compatibility if needed
+                vy: 0,
                 life: 0,
                 color: Math.random() > 0.5 ? '#FFD700' : '#FFFFFF', // Gold and White
-                size: Math.random() * 3 + 1
+                size: Math.random() * 4 + 3,
+                angle: Math.random() * Math.PI * 2,
+                speed: Math.random() * 8 + 2,
+                shape: Math.random() > 0.5 ? 'star' : 'snow'
             });
         }
         return particles;
@@ -118,7 +178,11 @@ const ClipStudio: React.FC = () => {
                 particles.forEach(p => {
                     p.x = width / 2;
                     p.y = height / 2;
-                    p.life = 0;
+                    p.life = 1; // Reset life
+                    p.size = Math.random() * 4 + 3; // Reset size
+                    p.angle = Math.random() * Math.PI * 2; // Reset angle
+                    p.speed = Math.random() * 8 + 2; // Reset speed
+                    p.shape = Math.random() > 0.5 ? 'star' : 'snow';
                 });
 
             } else {
@@ -133,25 +197,8 @@ const ClipStudio: React.FC = () => {
                 // 3. Render Particles Exploding
                 ctx.save();
                 particles.forEach((p) => {
-                    // Update
-                    p.life = transProgress;
-                    p.x += p.vx * (1 + transProgress * 5); // Accelerate
-                    p.y += p.vy * (1 + transProgress * 5);
-
-                    // Draw Star/Snowflake
-                    ctx.globalAlpha = 1 - transProgress; // Fade out
-                    ctx.fillStyle = p.color;
-                    ctx.beginPath();
-                    ctx.arc(p.x, p.y, p.size * (1 - transProgress), 0, Math.PI * 2);
-                    ctx.fill();
-
-                    // Sparkle
-                    if (Math.random() > 0.9) {
-                        ctx.shadowBlur = 10;
-                        ctx.shadowColor = 'white';
-                        ctx.fillRect(p.x, p.y, p.size * 2, p.size * 2);
-                        ctx.shadowBlur = 0;
-                    }
+                    updateParticle(p);
+                    drawParticle(ctx, p);
                 });
                 ctx.restore();
             }
