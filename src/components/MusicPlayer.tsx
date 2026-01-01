@@ -4,8 +4,6 @@ const MusicPlayer: React.FC = () => {
     const [isPlaying, setIsPlaying] = useState(false);
     const audioRef = useRef<HTMLAudioElement | null>(null);
 
-    // Using a short, reliable loopable holiday track from a stable CDN
-    const MUSIC_URL = "https://actions.google.com/sounds/v1/ambiences/wind_chimes.ogg"; // Fallback: Wind Chimes (Reliable Google CDN)
     // Alternative cheerful music: "https://cdn.pixabay.com/download/audio/2022/11/22/audio_febc508520.mp3" (We wish you a merry christmas - instrumental)
     // Let's try a direct reliable MP3 link for "Jingle Bells" or similar if possible. 
     // For now, let's use the Wind Chimes as it is high availability, or revert to a better Pixabay link with error handling.
