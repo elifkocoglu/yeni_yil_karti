@@ -8,7 +8,7 @@ interface Wish {
     message: string;
     createdAt: any;
     position: { x: number; y: number };
-    color: string; // Random ornament color
+    color: string;
 }
 
 const ORNAMENT_COLORS = [
@@ -25,7 +25,7 @@ const WishingTree: React.FC = () => {
     const [message, setMessage] = useState('');
     const [isOpen, setIsOpen] = useState(false);
     const [selectedWishId, setSelectedWishId] = useState<string | null>(null);
-    const [error, setError] = useState('');
+    // const [error, setError] = useState(''); // Removed unused state
 
     useEffect(() => {
         try {
@@ -38,12 +38,10 @@ const WishingTree: React.FC = () => {
                 setWishes(newWishes);
             }, (err) => {
                 console.error("Firebase connection error:", err);
-                setError("Veritabanı bağlantısı yok. Lütfen Firebase ayarlarını yapın.");
             });
             return () => unsubscribe();
         } catch (err) {
             console.error("Firebase init error", err);
-            setError("Firebase kurulu değil veya hatalı.");
         }
     }, []);
 
@@ -52,10 +50,14 @@ const WishingTree: React.FC = () => {
         if (!nickname.trim() || !message.trim()) return;
 
         try {
-            const y = Math.random() * 70 + 15; // 15% to 85% height to stay on branches
-            // Triangle width logic: Top is narrow, bottom is wide
-            const widthAtY = (y / 100) * 80;
-            const x = 50 + (Math.random() - 0.5) * widthAtY;
+            // Define a tree shape polygon approximation for better placement
+            // Normalizing x,y to 0-100% of the container
+            // Tree is roughly a triangle: Top(50, 10), BottomLeft(10, 90), BottomRight(90, 90)
+
+            const y = Math.random() * 70 + 20; // 20% to 90% from top
+            const spread = (y - 20) * 0.8; // Wider at bottom
+            const x = 50 + (Math.random() - 0.5) * spread;
+
             const color = ORNAMENT_COLORS[Math.floor(Math.random() * ORNAMENT_COLORS.length)];
 
             await addDoc(collection(db, 'wishes'), {
@@ -69,8 +71,7 @@ const WishingTree: React.FC = () => {
             setMessage('');
             setIsOpen(false);
         } catch (err) {
-            alert("Dilek gönderilemedi. Veritabanı ayarlarını kontrol edin.");
-            console.log(err);
+            alert("Hata: Dilek gönderilemedi.");
         }
     };
 
@@ -88,39 +89,50 @@ const WishingTree: React.FC = () => {
     return (
         <div className="relative flex flex-col items-center w-full max-w-4xl mx-auto p-4 z-30">
 
-            {/* Add Button */}
-            <button
-                onClick={() => setIsOpen(!isOpen)}
-                className="mb-8 px-10 py-4 bg-gradient-to-r from-red-600 to-red-800 text-white rounded-full font-bold shadow-[0_0_20px_rgba(220,38,38,0.6)] hover:scale-105 transition-transform animate-pulse border-2 border-white/20"
-            >
-                ✨ Bir Dilek As 🎄
-            </button>
+            {/* 
+          Main Interaction Button 
+          Moved outside the Z-layer complexity to ensure clickability 
+      */}
+            <div className="relative z-50 mb-8">
+                <button
+                    onClick={() => setIsOpen(true)}
+                    className="px-12 py-5 bg-gradient-to-r from-red-600 to-red-800 text-white text-xl font-bold rounded-full shadow-[0_0_25px_rgba(220,38,38,0.8)] hover:scale-105 hover:shadow-[0_0_35px_rgba(220,38,38,1)] transition-all animate-pulse border-2 border-yellow-400/50"
+                >
+                    ✨ Bir Dilek As 🎄
+                </button>
+            </div>
 
             {/* Modal Form */}
             {isOpen && (
-                <div className="fixed inset-0 bg-black/90 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
-                    <div className="bg-slate-800 border border-white/20 p-8 rounded-3xl w-full max-w-md shadow-2xl relative">
-                        <button onClick={() => setIsOpen(false)} className="absolute top-4 right-4 text-gray-400 hover:text-white">✕</button>
+                <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center z-[100] p-4 animate-in fade-in duration-300">
+                    <div className="bg-slate-900 border border-white/20 p-8 rounded-3xl w-full max-w-md shadow-2xl relative">
+                        <button
+                            onClick={() => setIsOpen(false)}
+                            className="absolute top-4 right-4 text-gray-400 hover:text-white w-8 h-8 flex items-center justify-center rounded-full hover:bg-white/10 text-xl font-bold"
+                        >
+                            ✕
+                        </button>
                         <h2 className="text-3xl text-white font-script mb-6 text-center">✨ Dilek Zamanı ✨</h2>
                         <form onSubmit={handleSubmit} className="space-y-6">
                             <div>
-                                <label className="text-sm text-gray-400 ml-1">Kimin Adına?</label>
+                                <label className="text-sm text-gray-300 ml-1 font-bold">Adın / Rumuzun</label>
                                 <input
                                     type="text"
-                                    placeholder="Rumuzun..."
+                                    placeholder="Örn: Elişko"
                                     value={nickname}
                                     onChange={(e) => setNickname(e.target.value)}
-                                    className="w-full bg-black/30 border border-white/10 rounded-xl p-4 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent transition-all"
+                                    className="w-full bg-black/50 border border-white/10 rounded-xl p-4 text-white placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-transparent transition-all"
                                     maxLength={20}
+                                    autoFocus
                                 />
                             </div>
                             <div>
-                                <label className="text-sm text-gray-400 ml-1">Dileğin Nedir?</label>
+                                <label className="text-sm text-gray-300 ml-1 font-bold">Dileğin</label>
                                 <textarea
-                                    placeholder="2026'da olması istediğin şey..."
+                                    placeholder="Yeni yılda..."
                                     value={message}
                                     onChange={(e) => setMessage(e.target.value)}
-                                    className="w-full bg-black/30 border border-white/10 rounded-xl p-4 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent h-32 transition-all resize-none"
+                                    className="w-full bg-black/50 border border-white/10 rounded-xl p-4 text-white placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-transparent h-32 transition-all resize-none"
                                     maxLength={140}
                                 />
                             </div>
@@ -128,7 +140,7 @@ const WishingTree: React.FC = () => {
                                 type="submit"
                                 className="w-full py-4 bg-gradient-to-r from-yellow-400 to-orange-500 text-black font-bold text-lg rounded-xl hover:opacity-90 shadow-lg transform active:scale-95 transition-all"
                             >
-                                Dileği As! 🎄
+                                As Gitsin! 🎄
                             </button>
                         </form>
                     </div>
@@ -136,72 +148,75 @@ const WishingTree: React.FC = () => {
             )}
 
             {/* The Tree Visualization */}
-            <div className="relative w-full aspect-[3/4] md:aspect-square max-h-[80vh] flex justify-center">
-                {/* Realistic CSS Tree Layers */}
-                <div className="absolute top-[5%] w-[10%] h-[20%] bg-gradient-to-b from-green-600 to-green-800 rounded-t-full clip-path-triangle transform translate-y-0 z-10 blur-[1px]"></div>
-                <div className="absolute top-[15%] w-[40%] h-[30%] bg-gradient-to-b from-green-700 to-green-900 clip-path-triangle transform translate-y-0 z-0 blur-[1px]"></div>
-                <div className="absolute top-[30%] w-[60%] h-[40%] bg-gradient-to-b from-green-800 to-green-950 clip-path-triangle transform translate-y-0 -z-10 blur-[1px]"></div>
+            <div className="relative w-full max-w-[500px] aspect-[4/5] flex justify-center items-end">
 
-                {/* SVG Tree Placeholder for structure if CSS fails visual test - using a nice gradient Triangle stack manually */}
-                <div className="absolute inset-0 flex flex-col items-center justify-end pb-[10%] drop-shadow-2xl">
-                    <div className="w-0 h-0 border-l-[150px] md:border-l-[250px] border-r-[150px] md:border-r-[250px] border-b-[500px] md:border-b-[600px] border-l-transparent border-r-transparent border-b-green-900/80 filter drop-shadow-[0_0_20px_rgba(22,101,52,0.5)]"></div>
+                {/* Nice SVG Tree Background */}
+                <svg viewBox="0 0 100 120" className="absolute inset-0 w-full h-full drop-shadow-2xl opacity-90" preserveAspectRatio="none">
                     {/* Trunk */}
-                    <div className="w-16 h-24 bg-[#3E2723] -mt-4 rounded-b-lg"></div>
-                </div>
+                    <rect x="42" y="100" width="16" height="20" fill="#3E2723" rx="2" />
 
-                {error && <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-red-300 bg-black/80 p-4 rounded-xl text-center border border-red-500/50 z-50">{error}</div>}
+                    {/* Leaves (Layered Triangles) */}
+                    <path d="M50 10 L80 50 L20 50 Z" fill="#1b5e20" /> {/* Top */}
+                    <path d="M50 30 L85 80 L15 80 Z" fill="#14532d" /> {/* Middle */}
+                    <path d="M50 50 L90 100 L10 100 Z" fill="#052e16" /> {/* Bottom */}
 
-                {wishes.map((wish) => (
-                    <div
-                        key={wish.id}
-                        className="absolute z-20"
-                        style={{
-                            left: `${wish.position?.x || 50}%`,
-                            top: `${wish.position?.y || 50}%`,
-                            transform: 'translate(-50%, -50%)'
-                        }}
-                    >
-                        {/* Ornament Interaction */}
-                        <button
-                            onClick={() => setSelectedWishId(selectedWishId === wish.id ? null : wish.id)}
-                            className={`w-8 h-8 md:w-10 md:h-10 rounded-full bg-gradient-to-br ${wish.color || 'from-yellow-400 to-yellow-600'} shadow-[0_0_10px_rgba(255,255,255,0.3)] hover:scale-125 transition-transform flex items-center justify-center text-[10px] text-white font-bold border border-white/20`}
-                        >
-                            <div className="w-2 h-2 rounded-full bg-white/50 absolute top-2 right-2 backdrop-blur-sm"></div>
-                            {wish.nickname.charAt(0).toUpperCase()}
-                        </button>
-
-                        {/* Stable Popup Card */}
-                        {selectedWishId === wish.id && (
-                            <div className="absolute bottom-full mb-3 left-1/2 -translate-x-1/2 w-56 bg-white/95 backdrop-blur-xl text-slate-800 p-4 rounded-xl shadow-2xl z-[100] animate-in fade-in slide-in-from-bottom-2 border border-white/50">
-                                <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-4 h-4 bg-white/95 rotate-45"></div>
-                                <p className="font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-pink-600 mb-2 border-b border-gray-200 pb-1">
-                                    {wish.nickname} diyor ki:
-                                </p>
-                                <p className="text-sm font-medium leading-relaxed mb-3 text-gray-700">"{wish.message}"</p>
-                                <div className="flex justify-between items-center mt-2 border-t border-gray-100 pt-2">
-                                    <span className="text-[10px] text-gray-400">Yeni</span>
-                                    <button
-                                        className="px-2 py-1 bg-red-100 text-red-600 rounded text-xs hover:bg-red-200 font-bold transition-colors"
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            handleDelete(wish.id);
-                                        }}
-                                    >
-                                        Sil 🗑️
-                                    </button>
-                                </div>
-                            </div>
-                        )}
-                    </div>
-                ))}
-            </div>
-
-            {/* Scroll Hint */}
-            <div className="mt-8 text-center text-blue-200 animate-bounce cursor-pointer opacity-70 hover:opacity-100">
-                <p className="text-sm uppercase tracking-widest mb-1">Kendi Klibini Yap</p>
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6 mx-auto">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
+                    {/* Highlights */}
+                    <path d="M50 10 L50 100" stroke="rgba(255,255,255,0.1)" strokeWidth="0.5" />
                 </svg>
+
+                {/* Wishes as Ornaments */}
+                <div className="absolute inset-0 z-10">
+                    {wishes.map((wish) => (
+                        <div
+                            key={wish.id}
+                            className="absolute"
+                            style={{
+                                left: `${wish.position?.x}%`,
+                                top: `${wish.position?.y}%`,
+                                transform: 'translate(-50%, -50%)'
+                            }}
+                        >
+                            {/* Ornament Interaction */}
+                            <button
+                                onClick={() => setSelectedWishId(selectedWishId === wish.id ? null : wish.id)}
+                                className={`group relative w-8 h-8 md:w-10 md:h-10 rounded-full bg-gradient-to-br ${wish.color || 'from-yellow-400 to-yellow-600'} shadow-[0_4px_6px_rgba(0,0,0,0.3)] hover:scale-125 transition-transform flex items-center justify-center text-white border border-white/20`}
+                            >
+                                {/* Glossy Reflection */}
+                                <div className="absolute top-1 right-2 w-2 h-2 bg-white/40 rounded-full blur-[1px]"></div>
+                                <span className="text-[10px] font-bold drop-shadow-md">{wish.nickname.charAt(0).toUpperCase()}</span>
+
+                                {/* Connector String */}
+                                <div className="absolute -top-4 w-[1px] h-4 bg-white/30"></div>
+                            </button>
+
+                            {/* Popover */}
+                            {selectedWishId === wish.id && (
+                                <div className="absolute bottom-full mb-4 left-1/2 -translate-x-1/2 w-64 bg-white text-slate-900 p-4 rounded-xl shadow-2xl z-50 animate-in zoom-in-95 duration-200 origin-bottom border-2 border-yellow-400/50">
+                                    <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-4 h-4 bg-white rotate-45 border-b-2 border-r-2 border-yellow-400/50"></div>
+
+                                    <div className="flex justify-between items-start mb-2 border-b border-gray-100 pb-2">
+                                        <h3 className="font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-pink-600">
+                                            {wish.nickname}
+                                        </h3>
+                                        <button
+                                            onClick={(e) => { e.stopPropagation(); handleDelete(wish.id); }}
+                                            className="text-gray-400 hover:text-red-500 transition-colors p-1"
+                                            title="Sil"
+                                        >
+                                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
+                                                <path fillRule="evenodd" d="M8.75 1A2.75 2.75 0 0 0 6 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 1 0 .23 1.482l.149-.022.841 10.518A2.75 2.75 0 0 0 7.596 19h4.807a2.75 2.75 0 0 0 2.742-2.53l.841-10.52.149.023a.75.75 0 0 0 .23-1.482A41.03 41.03 0 0 0 14 4.193V3.75A2.75 2.75 0 0 0 11.25 1h-2.5ZM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4ZM8.58 7.72a.75.75 0 0 0-1.5.06l.3 7.5a.75.75 0 1 0 1.5-.06l-.3-7.5Zm4.34.06a.75.75 0 1 0-1.5-.06l-.3 7.5a.75.75 0 0 0 1.5.06l.3-7.5Z" clipRule="evenodd" />
+                                            </svg>
+                                        </button>
+                                    </div>
+
+                                    <p className="text-sm font-medium leading-relaxed text-gray-600 italic">
+                                        "{wish.message}"
+                                    </p>
+                                </div>
+                            )}
+                        </div>
+                    ))}
+                </div>
             </div>
 
         </div>

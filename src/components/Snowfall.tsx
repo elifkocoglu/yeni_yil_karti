@@ -28,13 +28,13 @@ const Snowfall: React.FC = () => {
         resize();
 
         const createSnowflakes = () => {
-            const count = 100;
+            const count = 50; // Reduced from 100 for less clutter
             for (let i = 0; i < count; i++) {
                 snowflakes.push({
                     x: Math.random() * canvas.width,
                     y: Math.random() * canvas.height,
-                    radius: Math.random() * 2 + 1,
-                    speed: Math.random() * 1 + 0.5,
+                    radius: Math.random() * 2 + 0.5, // Smaller: 0.5px to 2.5px
+                    speed: Math.random() * 0.8 + 0.2, // Slower fall
                     wind: Math.random() * 0.5 - 0.25,
                 });
             }
@@ -43,7 +43,7 @@ const Snowfall: React.FC = () => {
 
         const loop = () => {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
-            ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.6)'; // Slightly more transparent
             ctx.beginPath();
 
             snowflakes.forEach((f) => {
@@ -73,7 +73,8 @@ const Snowfall: React.FC = () => {
         };
     }, []);
 
-    return <canvas ref={canvasRef} className="fixed inset-0 pointer-events-none z-0" />;
+    // Increased z-index to 50 to appear over content (foreground)
+    return <canvas ref={canvasRef} className="fixed inset-0 pointer-events-none z-50" />;
 };
 
 export default Snowfall;
