@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef } from 'react';
 import PhotoUploader from './PhotoUploader';
 
 // Types for our Particle Engine
@@ -132,7 +132,7 @@ const ClipStudio: React.FC = () => {
 
                 // 3. Render Particles Exploding
                 ctx.save();
-                particles.forEach((p, i) => {
+                particles.forEach((p) => {
                     // Update
                     p.life = transProgress;
                     p.x += p.vx * (1 + transProgress * 5); // Accelerate
@@ -322,8 +322,8 @@ const ClipStudio: React.FC = () => {
                             disabled={photos.length === 0 || status === 'recording'}
                             onClick={downloadVideo}
                             className={`flex-[2] py-4 rounded-xl font-bold text-lg shadow-lg flex items-center justify-center gap-2 transition-all ${status === 'recording'
-                                    ? 'bg-red-500 text-white animate-pulse'
-                                    : 'bg-gradient-to-r from-yellow-500 to-orange-600 text-white hover:scale-105 disabled:opacity-50 disabled:scale-100'
+                                ? 'bg-red-500 text-white animate-pulse'
+                                : 'bg-gradient-to-r from-yellow-500 to-orange-600 text-white hover:scale-105 disabled:opacity-50 disabled:scale-100'
                                 }`}
                         >
                             {status === 'recording' ? 'Sihir Yapılıyor... 🎬' : status === 'finished' ? 'Klip İndirildi! ✅' : 'Klibi Oluştur ve İndir 💾'}

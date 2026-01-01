@@ -161,7 +161,7 @@ const WishingTree: React.FC = () => {
                 {/* Wishes as Ornaments */}
                 <div className="absolute inset-0 z-10 pointer-events-none">
                     {/* Make children pointer-events-auto */}
-                    {wishes.map((wish) => (
+                    {wishes.map((wish, index) => (
                         <div
                             key={wish.id}
                             className="absolute pointer-events-auto" // Enable clicks for individual wishes
@@ -174,14 +174,74 @@ const WishingTree: React.FC = () => {
                             {/* Ornament Interaction */}
                             <button
                                 onClick={() => setSelectedWishId(selectedWishId === wish.id ? null : wish.id)}
-                                className={`group relative w-8 h-8 md:w-10 md:h-10 rounded-full bg-gradient-to-br ${wish.color || 'from-yellow-400 to-yellow-600'} shadow-[0_4px_6px_rgba(0,0,0,0.3)] hover:scale-125 transition-transform flex items-center justify-center text-white border border-white/20`}
+                                className={`group relative transition-transform hover:scale-125 flex items-center justify-center text-white z-10`}
                             >
-                                {/* Glossy Reflection */}
-                                <div className="absolute top-1 right-2 w-2 h-2 bg-white/40 rounded-full blur-[1px]"></div>
-                                <span className="text-[10px] font-bold drop-shadow-md">{wish.nickname.charAt(0).toUpperCase()}</span>
+                                {/* ORNAMENT RENDER LOGIC */}
+                                {(() => {
+                                    // Index 0 is the Star (The First Wish)
+                                    // Note: wishes are sorted by createdAt desc in the query, so index wishes.length - 1 is the oldest.
+                                    // Wait, query is `orderBy('createdAt', 'desc')`. So array[0] is the NEWEST.
+                                    // User said "ilk dileği asan kişi" (First person to hang it). That means the OLDEST wish.
+                                    // So the Star should be the LAST item in this array (wishes[wishes.length - 1]).
 
-                                {/* Connector String */}
-                                <div className="absolute -top-4 w-[1px] h-4 bg-white/30"></div>
+                                    // Let's verify sort order. Line 32: orderBy('createdAt', 'desc').
+                                    // Newest is at top (index 0). Oldest is at bottom (index length-1).
+                                    // "İlk dileği asan" = The one with oldest timestamp.
+                                    // So Star = wishes[wishes.length - 1].
+
+                                    // Sequential types for others:
+                                    // We can use the index to determine cyclic styles. 
+
+                                    const isFirstWish = index === wishes.length - 1;
+
+                                    // If we want the ornaments to be sequential based on creation order, we should Use (wishes.length - 1 - index)
+                                    const chronologicalIndex = wishes.length - 1 - index;
+                                    const ornamentTypeIndex = (chronologicalIndex - 1) % 6; // -1 because index 0 is star
+
+                                    if (isFirstWish) {
+                                        // 🌟 THE STAR (First Wish)
+                                        return (
+                                            <div className="relative w-12 h-12 md:w-16 md:h-16 flex items-center justify-center filter drop-shadow-[0_0_15px_rgba(255,215,0,0.8)]">
+                                                {/* Star SVG */}
+                                                <svg viewBox="0 0 24 24" fill="url(#starGradient)" className="w-full h-full animate-pulse-slow">
+                                                    <defs>
+                                                        <linearGradient id="starGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                                                            <stop offset="0%" stopColor="#FFF700" />
+                                                            <stop offset="100%" stopColor="#FFD700" />
+                                                        </linearGradient>
+                                                    </defs>
+                                                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+                                                </svg>
+                                                <span className="absolute text-yellow-900 font-bold text-xs">{wish.nickname.charAt(0).toUpperCase()}</span>
+                                            </div>
+                                        );
+                                    } else {
+                                        // 🎄 6 DISTINCT ORNAMENTS (Rotating)
+                                        // Defining styles for the 6 types
+                                        const styles = [
+                                            'bg-gradient-to-br from-red-500 to-red-700 shadow-red-500/50',        // 1. Red
+                                            'bg-gradient-to-br from-blue-400 to-blue-600 shadow-blue-400/50',     // 2. Blue
+                                            'bg-gradient-to-br from-purple-400 to-purple-600 shadow-purple-500/50', // 3. Purple
+                                            'bg-gradient-to-br from-green-400 to-emerald-600 shadow-green-500/50', // 4. Green
+                                            'bg-gradient-to-br from-pink-400 to-rose-600 shadow-pink-500/50',     // 5. Pink
+                                            'bg-gradient-to-br from-orange-300 to-amber-500 shadow-orange-400/50' // 6. Gold/Orange
+                                        ];
+
+                                        // Safe modulo
+                                        const safeIndex = Math.abs(ornamentTypeIndex) % 6;
+                                        const styleClass = styles[safeIndex];
+
+                                        return (
+                                            <div className={`w-8 h-8 md:w-10 md:h-10 rounded-full ${styleClass} shadow-lg border border-white/20 flex items-center justify-center`}>
+                                                {/* Glossy Reflection */}
+                                                <div className="absolute top-1 right-2 w-2 h-2 bg-white/40 rounded-full blur-[1px]"></div>
+                                                <span className="text-[10px] font-bold drop-shadow-md text-white">{wish.nickname.charAt(0).toUpperCase()}</span>
+                                                {/* Connector String */}
+                                                <div className="absolute -top-4 w-[1px] h-4 bg-white/30"></div>
+                                            </div>
+                                        );
+                                    }
+                                })()}
                             </button>
 
                             {/* Popover */}
