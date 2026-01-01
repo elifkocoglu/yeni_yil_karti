@@ -253,16 +253,21 @@ const WishingTree: React.FC = () => {
         >
 
             {/* HIDDEN MUSIC PLAYER */}
-            <div className="hidden">
+            {/* HIDDEN MUSIC PLAYER - Must not be display:none for YouTube API to work */}
+            <div className="absolute top-0 left-0 w-[1px] h-[1px] opacity-0 pointer-events-none overflow-hidden">
                 <RP
                     url={currentPlayingUrl || ''}
                     playing={isPlaying}
-                    width="0"
-                    height="0"
+                    width="100%"
+                    height="100%"
                     volume={0.6}
                     config={{
                         youtube: {
-                            playerVars: { showinfo: 0 }
+                            playerVars: {
+                                showinfo: 0,
+                                playsinline: 1,
+                                origin: window.location.origin
+                            }
                         }
                     }}
                 />
