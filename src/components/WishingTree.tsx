@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
+import ReactPlayer from 'react-player';
+const RP = ReactPlayer as any;
 import { db } from '../firebase';
 import { collection, addDoc, onSnapshot, query, orderBy, serverTimestamp, deleteDoc, doc, updateDoc } from 'firebase/firestore';
 
@@ -16,9 +18,30 @@ interface Wish {
 // --- MUSIC OPTIONS ---
 const MUSIC_OPTIONS = [
     { name: 'Sessiz (Müzik Yok)', url: '' },
-    { name: '🎹 Piyano Yılbaşı', url: 'https://cdn.pixabay.com/download/audio/2022/01/18/audio_d0a13f69d2.mp3' },
-    { name: '🔔 Neşeli Jingle', url: 'https://cdn.pixabay.com/download/audio/2022/10/25/audio_1012809624.mp3' },
-    { name: '❄️ Sakin Kış', url: 'https://cdn.pixabay.com/download/audio/2022/11/22/audio_febc508520.mp3' }
+    { name: 'MFÖ - Ele Güne Karşı', url: 'https://www.youtube.com/watch?v=4DZbURvoDEc' },
+    { name: 'Ajda Pekkan - Uykusuz Her Gece', url: 'https://www.youtube.com/watch?v=vG9zWvX-r7I' },
+    { name: 'Barış Manço - Dönence', url: 'https://www.youtube.com/watch?v=W-A_vU56oRE' },
+    { name: 'Simge - Aşkın Olayım', url: 'https://www.youtube.com/watch?v=zYy_mNshv_I' },
+    { name: 'Hande Yener - Sebastian', url: 'https://www.youtube.com/watch?v=gX3p-R05W2I' },
+    { name: 'Erkin Koray - Çöpçüler', url: 'https://www.youtube.com/watch?v=q6_yF8V25H8' },
+    { name: 'Tarkan - Şımarık', url: 'https://www.youtube.com/watch?v=pu9co0YRKHg' },
+    { name: 'Sertab Erener - Sakin Ol', url: 'https://www.youtube.com/watch?v=vV7eH8_C4QY' },
+    { name: 'Levent Yüksel - Med Cezir', url: 'https://www.youtube.com/watch?v=QJ_HX8t9YXI' },
+    { name: 'Mirkelam - Her Gece', url: 'https://www.youtube.com/watch?v=rT9q-M7lG4s' },
+    { name: 'Yonca Evcimik - Abone', url: 'https://www.youtube.com/watch?v=n7z5L-Y5M2w' },
+    { name: 'Mustafa Sandal - Araba', url: 'https://www.youtube.com/watch?v=76vS7lU7f9o' },
+    { name: 'Kenan Doğulu - Çakkıdı', url: 'https://www.youtube.com/watch?v=m4v7k9P_eA8' },
+    { name: 'Hadise - Düm Tek Tek', url: 'https://www.youtube.com/watch?v=vW3i8lFz2-0' },
+    { name: 'Demet Akalın - Türkan', url: 'https://www.youtube.com/watch?v=oE_s2-3_Riw' },
+    { name: 'Atiye - Salla', url: 'https://www.youtube.com/watch?v=A4nS_rK6N98' },
+    { name: 'Edis - Martılar', url: 'https://www.youtube.com/watch?v=r7tW03D-i9s' },
+    { name: 'Murat Boz - Janti', url: 'https://www.youtube.com/watch?v=I67-1-9I0z4' },
+    { name: 'Müslüm Gürses - Affet', url: 'https://www.youtube.com/watch?v=U97vXqG_Y48' },
+    { name: 'Şebnem Ferah - Sil Baştan', url: 'https://www.youtube.com/watch?v=Kz69k1V8P5c' },
+    { name: 'Teoman - Paramparça', url: 'https://www.youtube.com/watch?v=t-vBq52Bv-M' },
+    { name: 'Gülşen - Bangır Bangır', url: 'https://www.youtube.com/watch?v=17Xm_9L-E90' },
+    { name: 'Mabel Matiz - Öyle Kolaysa', url: 'https://www.youtube.com/watch?v=vXw-8Y_N5Lw' },
+    { name: 'Tarkan - Kuzu Kuzu', url: 'https://www.youtube.com/watch?v=h-S6HhG9kI8' }
 ];
 
 const ORNAMENT_COLORS = [
@@ -39,17 +62,16 @@ const WishingTree: React.FC = () => {
     const [selectedWishId, setSelectedWishId] = useState<string | null>(null);
     // const [error, setError] = useState(''); // Removed unused state
 
-    // Audio Playback Ref
-    const activeAudioRef = useRef<HTMLAudioElement | null>(null);
+    // Audio Playback State (YouTube)
+    const [currentPlayingUrl, setCurrentPlayingUrl] = useState<string | null>(null);
+    const [isPlaying, setIsPlaying] = useState(false);
 
-    // Stop audio when popover closes or switches
+    // Stop audio when playlist changes or popover closes
     useEffect(() => {
-        return () => {
-            if (activeAudioRef.current) {
-                activeAudioRef.current.pause();
-                activeAudioRef.current = null;
-            }
-        };
+        if (!selectedWishId) {
+            setIsPlaying(false);
+            setCurrentPlayingUrl(null);
+        }
     }, [selectedWishId]);
 
     useEffect(() => {
@@ -120,21 +142,13 @@ const WishingTree: React.FC = () => {
 
     // Play/Pause Handler
     const handlePlayWishMusic = (url: string) => {
-        if (activeAudioRef.current) {
-            // If playing same song, toggle pause
-            if (activeAudioRef.current.src === url && !activeAudioRef.current.paused) {
-                activeAudioRef.current.pause();
-                return;
-            }
-            // Stop previous
-            activeAudioRef.current.pause();
-        }
-
-        if (url) {
-            const audio = new Audio(url);
-            audio.volume = 0.6;
-            audio.play();
-            activeAudioRef.current = audio;
+        if (currentPlayingUrl === url) {
+            // Toggle
+            setIsPlaying(!isPlaying);
+        } else {
+            // New song
+            setCurrentPlayingUrl(url);
+            setIsPlaying(true);
         }
     };
 
@@ -235,8 +249,24 @@ const WishingTree: React.FC = () => {
 
     return (
         <div
-            className="relative flex flex-col items-center w-full min-h-screen p-4 overflow-x-hidden"
+            className="relative flex flex-col items-center w-full min-h-screen p-4"
         >
+
+            {/* HIDDEN MUSIC PLAYER */}
+            <div className="hidden">
+                <RP
+                    url={currentPlayingUrl || ''}
+                    playing={isPlaying}
+                    width="0"
+                    height="0"
+                    volume={0.6}
+                    config={{
+                        youtube: {
+                            playerVars: { showinfo: 0 }
+                        }
+                    }}
+                />
+            </div>
 
             {/* 
           Main Interaction Button 
@@ -298,15 +328,16 @@ const WishingTree: React.FC = () => {
                                 <label className="text-sm text-gray-300 ml-1 font-bold flex items-center gap-2">
                                     <span>🎵</span> Dileğine Müzik Ekle
                                 </label>
-                                <div className="grid grid-cols-2 gap-2 mt-2">
+                                <div className="h-40 overflow-y-auto pr-2 mt-2 space-y-2 custom-scrollbar border border-white/10 rounded-xl p-2 bg-black/20">
                                     {MUSIC_OPTIONS.map((opt) => (
                                         <button
-                                            key={opt.name}
+                                            key={opt.url}
                                             type="button"
                                             onClick={() => setSelectedMusicUrl(opt.url)}
-                                            className={`text-xs p-2 rounded-lg border transition-all ${selectedMusicUrl === opt.url ? 'bg-yellow-500 text-black border-yellow-400 font-bold' : 'bg-white/5 text-gray-400 border-white/10 hover:bg-white/10'}`}
+                                            className={`w-full text-left text-xs p-3 rounded-lg border transition-all flex items-center justify-between ${selectedMusicUrl === opt.url ? 'bg-yellow-500 text-black border-yellow-400 font-bold' : 'bg-white/5 text-gray-300 border-white/10 hover:bg-white/10'}`}
                                         >
-                                            {opt.name}
+                                            <span className="truncate">{opt.name}</span>
+                                            {selectedMusicUrl === opt.url && <span>✓</span>}
                                         </button>
                                     ))}
                                 </div>
@@ -401,6 +432,9 @@ const WishingTree: React.FC = () => {
                             );
                         }
 
+                        // Determine position for popover (Bottom or Top)
+                        const isTopHalf = wish.position.y < 50;
+
                         return (
                             <div
                                 key={wish.id}
@@ -411,7 +445,7 @@ const WishingTree: React.FC = () => {
                                     transform: 'translate(-50%, -50%)',
                                     cursor: draggingId === wish.id ? 'grabbing' : 'grab',
                                     userSelect: 'none',
-                                    touchAction: 'none' // Important for touch drag
+                                    touchAction: 'none'
                                 }}
                                 onMouseDown={(e) => handleDragStart(e, wish.id)}
                                 onTouchStart={(e) => handleDragStart(e, wish.id)}
@@ -422,11 +456,13 @@ const WishingTree: React.FC = () => {
 
                                 {/* Popover */}
                                 {selectedWishId === wish.id && !draggingId && (
-                                    <div className="absolute bottom-full mb-4 left-1/2 -translate-x-1/2 w-64 bg-white text-slate-900 p-4 rounded-xl shadow-2xl z-50 animate-in zoom-in-95 duration-200 origin-bottom border-2 border-yellow-400/50 cursor-auto"
+                                    <div
+                                        className={`absolute left-1/2 -translate-x-1/2 w-64 bg-white text-slate-900 p-4 rounded-xl shadow-2xl z-50 animate-in zoom-in-95 duration-200 border-2 border-yellow-400/50 cursor-auto ${isTopHalf ? 'top-full mt-4 origin-top' : 'bottom-full mb-4 origin-bottom'}`}
                                         onMouseDown={(e) => e.stopPropagation()}
                                         onTouchStart={(e) => e.stopPropagation()}
                                     >
-                                        <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-4 h-4 bg-white rotate-45 border-b-2 border-r-2 border-yellow-400/50"></div>
+                                        {/* Triangle Arrow */}
+                                        <div className={`absolute left-1/2 -translate-x-1/2 w-4 h-4 bg-white rotate-45 border-r-2 border-b-2 border-yellow-400/50 ${isTopHalf ? '-top-2 border-r-0 border-b-0 border-l-2 border-t-2' : '-bottom-2'}`}></div>
 
                                         <div className="flex justify-between items-start mb-2 border-b border-gray-100 pb-2">
                                             <h3 className="font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-pink-600">
@@ -456,9 +492,13 @@ const WishingTree: React.FC = () => {
                                                         e.stopPropagation();
                                                         handlePlayWishMusic(wish.musicUrl!);
                                                     }}
-                                                    className="w-8 h-8 rounded-full bg-blue-100 hover:bg-blue-200 text-blue-600 flex items-center justify-center transition-colors shadow-sm"
+                                                    className="w-8 h-8 rounded-full bg-blue-100 hover:bg-blue-200 text-blue-600 flex items-center justify-center transition-colors shadow-sm relative group"
                                                 >
-                                                    ▶
+                                                    {currentPlayingUrl === wish.musicUrl && isPlaying ? (
+                                                        <span className="animate-pulse">❚❚</span>
+                                                    ) : (
+                                                        <span>▶</span>
+                                                    )}
                                                 </button>
                                             </div>
                                         )}
