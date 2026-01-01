@@ -7,35 +7,52 @@ import ClipStudio from './components/ClipStudio';
 
 function App() {
     return (
-        <div className="relative min-h-screen overflow-x-hidden overflow-y-auto bg-slate-900 pb-20">
-            {/* Background Effects */}
-            <div className="fixed inset-0 bg-gradient-to-b from-[#0f172a] via-[#1e293b] to-[#334155] pointer-events-none -z-10"></div>
-            {/* Snow Overlay Image (Optional, lighter opacity) */}
-            <div className="fixed inset-0 bg-[url('https://images.unsplash.com/photo-1542601098-8fc114e148e2?q=80&w=2070&auto=format&fit=crop')] bg-cover bg-center opacity-10 pointer-events-none -z-10 bg-fixed"></div>
+        <div className="relative min-h-screen text-white selection:bg-red-500 selection:text-white">
+            {/* Winter Background */}
+            <div className="fixed inset-0 bg-gradient-to-b from-[#1e3a8a] via-[#3b82f6] to-[#93c5fd] pointer-events-none -z-20"></div>
+
+            {/* Snowy Landscape & Snowman */}
+            <div className="fixed inset-0 pointer-events-none -z-10">
+                {/* Snow ground */}
+                <div className="absolute bottom-0 left-0 right-0 h-1/3 bg-gradient-to-t from-white to-blue-100 opacity-90 rounded-t-[50%_100px]"></div>
+                {/* Snowman Image (Bottom Left) */}
+                <img
+                    src="https://cdn-icons-png.flaticon.com/512/614/614140.png"
+                    alt="Snowman"
+                    className="absolute bottom-10 left-10 w-32 md:w-48 animate-bounce"
+                    style={{ animationDuration: '3s' }}
+                />
+            </div>
 
             <Snowfall />
             <Fireworks />
 
             <MusicPlayer />
 
-            {/* Main Content */}
-            <Greeting />
+            {/* Main Content (Full Height Section) */}
+            <div className="relative min-h-screen flex flex-col items-center justify-center p-4">
+                <Greeting />
 
-            {/* Scroll Down Indicator */}
-            <div className="absolute bottom-10 left-0 right-0 text-white/50 text-center animate-bounce pointer-events-none">
-                <p className="text-sm uppercase tracking-widest mb-2">Sürprizler Aşağıda</p>
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6 mx-auto">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
-                </svg>
+                {/* Scroll Down Indicator */}
+                <div className="absolute bottom-10 animate-bounce text-center">
+                    <p className="text-blue-900 font-bold bg-white/50 px-4 py-1 rounded-full backdrop-blur-sm mb-2 shadow-lg">
+                        Sürprizler Aşağıda 🎄
+                    </p>
+                    <div className="w-10 h-16 border-4 border-white rounded-full flex justify-center p-2 bg-black/20 backdrop-blur-sm mx-auto">
+                        <div className="w-2 h-4 bg-white rounded-full animate-[bounce_1.5s_infinite]"></div>
+                    </div>
+                </div>
             </div>
 
             {/* Wishing Tree Section */}
-            <div id="wishing-tree" className="relative z-20 container mx-auto mb-20 px-4 pt-20 border-t border-white/10 mt-20 bg-slate-900/50 backdrop-blur-sm rounded-3xl">
-                <div className="text-center mb-10">
-                    <h2 className="text-4xl md:text-5xl font-script text-white mb-4">Dilek Ağacı</h2>
-                    <p className="text-blue-200">2026 için güzel dileklerini buraya as 🎄</p>
+            <div id="wishing-tree" className="relative z-20 container mx-auto mb-20 px-4 pt-10">
+                <div className="bg-white/10 backdrop-blur-md rounded-3xl p-8 border border-white/20 shadow-2xl">
+                    <div className="text-center mb-10">
+                        <h2 className="text-4xl md:text-5xl font-script text-white drop-shadow-md mb-4">🎄 Dilek Ağacı</h2>
+                        <p className="text-blue-100 text-lg">2026 için güzel dileklerini buraya as, herkes okusun!</p>
+                    </div>
+                    <WishingTree />
                 </div>
-                <WishingTree />
             </div>
 
             {/* Video Clip Studio */}

@@ -8,7 +8,10 @@
 
 body {
   margin: 0;
-  overflow: hidden; /* Prevent scrollbars for full screen animation */
-  background-color: #000;
+  overflow-x: hidden;
+  /* Prevent horizontal scroll only */
+  overflow-y: auto;
+  /* Allow vertical scroll */
+  background-color: #0f172a;
   font-family: 'Outfit', sans-serif;
 }
