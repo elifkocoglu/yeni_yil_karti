@@ -9,7 +9,17 @@ interface Wish {
     createdAt: any;
     position: { x: number; y: number };
     color: string;
+    musicUrl?: string; // New field
+    musicName?: string; // New field
 }
+
+// --- MUSIC OPTIONS ---
+const MUSIC_OPTIONS = [
+    { name: 'Sessiz (Müzik Yok)', url: '' },
+    { name: '🎹 Piyano Yılbaşı', url: 'https://cdn.pixabay.com/download/audio/2022/01/18/audio_d0a13f69d2.mp3' },
+    { name: '🔔 Neşeli Jingle', url: 'https://cdn.pixabay.com/download/audio/2022/10/25/audio_1012809624.mp3' },
+    { name: '❄️ Sakin Kış', url: 'https://cdn.pixabay.com/download/audio/2022/11/22/audio_febc508520.mp3' }
+];
 
 const ORNAMENT_COLORS = [
     'from-red-400 to-red-600',
@@ -23,9 +33,24 @@ const WishingTree: React.FC = () => {
     const [wishes, setWishes] = useState<Wish[]>([]);
     const [nickname, setNickname] = useState('');
     const [message, setMessage] = useState('');
+    const [selectedMusicUrl, setSelectedMusicUrl] = useState(''); // State for selection
+
     const [isOpen, setIsOpen] = useState(false);
     const [selectedWishId, setSelectedWishId] = useState<string | null>(null);
     // const [error, setError] = useState(''); // Removed unused state
+
+    // Audio Playback Ref
+    const activeAudioRef = useRef<HTMLAudioElement | null>(null);
+
+    // Stop audio when popover closes or switches
+    useEffect(() => {
+        return () => {
+            if (activeAudioRef.current) {
+                activeAudioRef.current.pause();
+                activeAudioRef.current = null;
+            }
+        };
+    }, [selectedWishId]);
 
     useEffect(() => {
         try {
@@ -60,15 +85,21 @@ const WishingTree: React.FC = () => {
 
             const color = ORNAMENT_COLORS[Math.floor(Math.random() * ORNAMENT_COLORS.length)];
 
+            // Find name
+            const musicName = MUSIC_OPTIONS.find(m => m.url === selectedMusicUrl)?.name || '';
+
             await addDoc(collection(db, 'wishes'), {
                 nickname,
                 message,
                 createdAt: serverTimestamp(),
                 position: { x, y },
-                color
+                color,
+                musicUrl: selectedMusicUrl,
+                musicName: musicName
             });
             setNickname('');
             setMessage('');
+            setSelectedMusicUrl('');
             // setIsOpen(false); // Moved up
         } catch (err) {
             alert("Hata: Dilek gönderilemedi.");
@@ -86,6 +117,27 @@ const WishingTree: React.FC = () => {
             }
         }
     };
+
+    // Play/Pause Handler
+    const handlePlayWishMusic = (url: string) => {
+        if (activeAudioRef.current) {
+            // If playing same song, toggle pause
+            if (activeAudioRef.current.src === url && !activeAudioRef.current.paused) {
+                activeAudioRef.current.pause();
+                return;
+            }
+            // Stop previous
+            activeAudioRef.current.pause();
+        }
+
+        if (url) {
+            const audio = new Audio(url);
+            audio.volume = 0.6;
+            audio.play();
+            activeAudioRef.current = audio;
+        }
+    };
+
 
     // --- DRAGGING LOGIC ---
     const [draggingId, setDraggingId] = useState<string | null>(null);
@@ -190,16 +242,17 @@ const WishingTree: React.FC = () => {
           Main Interaction Button 
       */}
             {/* 
-          Main Interaction Button (Moved to Top Right Fixed)
+          Main Interaction Button (Moved to Left Side Fixed)
       */}
-            <div className="fixed top-4 right-4 z-[60]">
+            <div className="fixed left-4 top-1/2 -translate-y-1/2 z-[60]">
                 <button
                     onClick={() => {
                         setNickname('');
                         setMessage('');
+                        setSelectedMusicUrl('');
                         setIsOpen(true);
                     }}
-                    className="px-6 py-2 md:px-8 md:py-3 bg-gradient-to-r from-red-600 to-red-800 text-white text-sm md:text-lg font-bold rounded-full shadow-[0_0_15px_rgba(220,38,38,0.6)] hover:scale-105 transition-all border border-yellow-400/30 flex items-center gap-2"
+                    className="px-6 py-3 bg-gradient-to-r from-red-600 to-red-800 text-white text-sm md:text-lg font-bold rounded-full shadow-[0_0_15px_rgba(220,38,38,0.6)] hover:scale-105 transition-all border border-yellow-400/30 flex items-center gap-2 writing-mode-horizontal"
                 >
                     <span>✨</span> <span className="hidden md:inline">Bir Dilek As</span><span className="md:hidden">Dilek As</span> <span>🎄</span>
                 </button>
@@ -235,10 +288,30 @@ const WishingTree: React.FC = () => {
                                     placeholder="Yeni yılda..."
                                     value={message}
                                     onChange={(e) => setMessage(e.target.value)}
-                                    className="w-full bg-black/50 border border-white/10 rounded-xl p-4 text-white placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-transparent h-32 transition-all resize-none"
+                                    className="w-full bg-black/50 border border-white/10 rounded-xl p-4 text-white placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-transparent h-24 transition-all resize-none"
                                     maxLength={140}
                                 />
                             </div>
+
+                            {/* Music Selection */}
+                            <div>
+                                <label className="text-sm text-gray-300 ml-1 font-bold flex items-center gap-2">
+                                    <span>🎵</span> Dileğine Müzik Ekle
+                                </label>
+                                <div className="grid grid-cols-2 gap-2 mt-2">
+                                    {MUSIC_OPTIONS.map((opt) => (
+                                        <button
+                                            key={opt.name}
+                                            type="button"
+                                            onClick={() => setSelectedMusicUrl(opt.url)}
+                                            className={`text-xs p-2 rounded-lg border transition-all ${selectedMusicUrl === opt.url ? 'bg-yellow-500 text-black border-yellow-400 font-bold' : 'bg-white/5 text-gray-400 border-white/10 hover:bg-white/10'}`}
+                                        >
+                                            {opt.name}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
                             <button
                                 type="submit"
                                 className="w-full py-4 bg-gradient-to-r from-yellow-400 to-orange-500 text-black font-bold text-lg rounded-xl hover:opacity-90 shadow-lg transform active:scale-95 transition-all"
@@ -368,9 +441,27 @@ const WishingTree: React.FC = () => {
                                             </button>
                                         </div>
 
-                                        <p className="text-sm font-medium leading-relaxed text-gray-600 italic">
+                                        <p className="text-sm font-medium leading-relaxed text-gray-600 italic mb-2">
                                             "{wish.message}"
                                         </p>
+
+                                        {/* Play Music Button in Popover */}
+                                        {wish.musicUrl && (
+                                            <div className="mt-2 pt-2 border-t border-gray-100 flex items-center justify-between">
+                                                <span className="text-xs text-blue-600 font-bold flex items-center gap-1">
+                                                    🎵 {wish.musicName || 'Müzik'}
+                                                </span>
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        handlePlayWishMusic(wish.musicUrl!);
+                                                    }}
+                                                    className="w-8 h-8 rounded-full bg-blue-100 hover:bg-blue-200 text-blue-600 flex items-center justify-center transition-colors shadow-sm"
+                                                >
+                                                    ▶
+                                                </button>
+                                            </div>
+                                        )}
                                     </div>
                                 )}
                             </div>
