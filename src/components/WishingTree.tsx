@@ -477,7 +477,7 @@ const WishingTree: React.FC = () => {
                                 onMouseDown={(e) => handleDragStart(e, wish.id)}
                                 onTouchStart={(e) => handleDragStart(e, wish.id)}
                             >
-                                <div onClick={() => handleClick(wish.id)}>
+                                <div onClick={(e) => { e.stopPropagation(); handleClick(wish.id); }}>
                                     {content}
                                 </div>
 
