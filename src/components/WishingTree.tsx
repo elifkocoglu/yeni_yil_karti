@@ -254,13 +254,24 @@ const WishingTree: React.FC = () => {
 
             {/* HIDDEN MUSIC PLAYER */}
             {/* HIDDEN MUSIC PLAYER - Must not be display:none for YouTube API to work */}
-            <div className="absolute top-0 left-0 w-[1px] h-[1px] opacity-0 pointer-events-none overflow-hidden">
+            {/* DEBUG: Visible Player to diagnose playback issues */}
+            <div className="fixed bottom-0 right-0 w-[200px] h-[150px] z-[9999] border-2 border-red-500 bg-black shadow-2xl">
+                <div className="absolute -top-6 left-0 bg-red-500 text-white text-xs px-2 rounded-t">Debug Modu</div>
                 <RP
                     url={currentPlayingUrl || ''}
                     playing={isPlaying}
                     width="100%"
                     height="100%"
-                    volume={0.6}
+                    volume={0.8}
+                    muted={false}
+                    controls={true}
+                    onReady={() => console.log("Player Ready")}
+                    onStart={() => console.log("Player Started")}
+                    onPlay={() => console.log("Player Playing")}
+                    onError={(e: any) => {
+                        console.error("Player Error:", e);
+                        alert("Müzik Çalar Hatası: " + JSON.stringify(e));
+                    }}
                     config={{
                         youtube: {
                             playerVars: {
