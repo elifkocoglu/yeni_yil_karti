@@ -4,6 +4,7 @@ import Greeting from './components/Greeting';
 import MusicPlayer from './components/MusicPlayer';
 import WishingTree from './components/WishingTree';
 import ClipStudio from './components/ClipStudio';
+import SnowFamily from './components/SnowFamily';
 
 function App() {
     return (
@@ -11,17 +12,13 @@ function App() {
             {/* Winter Background */}
             <div className="fixed inset-0 bg-gradient-to-b from-[#1e3a8a] via-[#3b82f6] to-[#93c5fd] pointer-events-none -z-20"></div>
 
-            {/* Snowy Landscape & Snowman */}
+            {/* Snowy Landscape & Snow Family */}
             <div className="fixed inset-0 pointer-events-none -z-10">
                 {/* Snow ground */}
-                <div className="absolute bottom-0 left-0 right-0 h-1/3 bg-gradient-to-t from-white to-blue-100 opacity-90 rounded-t-[50%_100px]"></div>
-                {/* Snowman Image (Bottom Left) */}
-                <img
-                    src="https://cdn-icons-png.flaticon.com/512/614/614140.png"
-                    alt="Snowman"
-                    className="absolute bottom-10 left-10 w-32 md:w-48 animate-bounce"
-                    style={{ animationDuration: '3s' }}
-                />
+                <div className="absolute bottom-0 left-0 right-0 h-1/4 bg-gradient-to-t from-white to-blue-100/50 opacity-90 blur-sm rounded-t-[50%_40px]"></div>
+
+                {/* Animated Family */}
+                <SnowFamily />
             </div>
 
             <Snowfall />
