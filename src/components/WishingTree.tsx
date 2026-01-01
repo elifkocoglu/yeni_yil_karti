@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { db } from '../firebase';
-import { collection, addDoc, onSnapshot, query, orderBy, serverTimestamp, deleteDoc, doc } from 'firebase/firestore';
+import { collection, addDoc, onSnapshot, query, orderBy, serverTimestamp, deleteDoc, doc, updateDoc } from 'firebase/firestore';
 
 interface Wish {
     id: string;
@@ -87,13 +87,69 @@ const WishingTree: React.FC = () => {
         }
     };
 
+    // --- DRAGGING LOGIC ---
+    const [draggingId, setDraggingId] = useState<string | null>(null);
+    const containerRef = useRef<HTMLDivElement>(null);
+
+    const handleDragStart = (e: React.MouseEvent | React.TouchEvent, id: string) => {
+        // Stop propagation to prevent selecting the button text or triggering other clicks
+        e.stopPropagation();
+        setDraggingId(id);
+        setSelectedWishId(null); // Close tooltip when dragging starts
+    };
+
+    const handleDragMove = (e: React.MouseEvent | React.TouchEvent) => {
+        if (!draggingId || !containerRef.current) return;
+
+        // Get coordinates
+        const clientX = 'touches' in e ? e.touches[0].clientX : (e as React.MouseEvent).clientX;
+        const clientY = 'touches' in e ? e.touches[0].clientY : (e as React.MouseEvent).clientY;
+
+        const rect = containerRef.current.getBoundingClientRect();
+
+        // Calculate percentage position relative to container
+        let x = ((clientX - rect.left) / rect.width) * 100;
+        let y = ((clientY - rect.top) / rect.height) * 100;
+
+        // Clamp values to keep inside tree area mostly
+        x = Math.max(0, Math.min(100, x));
+        y = Math.max(0, Math.min(100, y));
+
+        // Update local state IMMEDIATELY for smoothness
+        setWishes(prev => prev.map(w => w.id === draggingId ? { ...w, position: { x, y } } : w));
+    };
+
+    const handleDragEnd = async () => {
+        if (!draggingId) return;
+
+        const wish = wishes.find(w => w.id === draggingId);
+        if (wish) {
+            // Save final position to Firestore
+            try {
+                await updateDoc(doc(db, 'wishes', draggingId), {
+                    'position.x': wish.position.x,
+                    'position.y': wish.position.y
+                });
+            } catch (err) {
+                console.error("Update failed", err);
+            }
+        }
+        setDraggingId(null);
+    };
+
     return (
-        <div className="relative flex flex-col items-center w-full max-w-4xl mx-auto p-4 z-30">
+        <div
+            className="relative flex flex-col items-center w-full min-h-screen p-4 overflow-x-hidden"
+            onMouseMove={draggingId ? (e) => handleDragMove(e) : undefined}
+            onTouchMove={draggingId ? (e) => handleDragMove(e) : undefined}
+            onMouseUp={handleDragEnd}
+            onTouchEnd={handleDragEnd}
+        >
 
             {/* 
           Main Interaction Button 
       */}
-            <div className="relative z-50 mb-4">
+            <div className="relative z-50 mb-4 sticky top-4">
                 <button
                     onClick={() => setIsOpen(true)}
                     className="px-8 py-3 bg-gradient-to-r from-red-600 to-red-800 text-white text-lg font-bold rounded-full shadow-[0_0_15px_rgba(220,38,38,0.6)] hover:scale-105 transition-all border border-yellow-400/30"
@@ -147,130 +203,133 @@ const WishingTree: React.FC = () => {
                 </div>
             )}
 
-            {/* The Tree Visualization */}
-            <div className="relative w-full max-w-[500px] aspect-[4/5] flex justify-center items-end">
+            {/* 
+                TREE CONTAINER 
+                Added overflow-visible and min-width to allow "sideways scrolling" perception/usage if needed.
+                Ref for Dragging Calculation.
+            */}
+            <div
+                ref={containerRef}
+                className="relative w-full max-w-[600px] aspect-[4/5] flex justify-center items-end mt-8 touch-none"
+            >
 
                 {/* Realistic Tree Image (Using the uploaded one) */}
                 {/* We use the base parameter in vite config, so /tree_real.png works if placed in public */}
                 <img
                     src="./tree_real.png"
                     alt="Yılbaşı Ağacı"
-                    className="absolute inset-0 w-full h-full object-contain filter drop-shadow-2xl opacity-95"
+                    className="absolute inset-0 w-full h-full object-contain filter drop-shadow-2xl opacity-95 pointer-events-none select-none"
                 />
 
                 {/* Wishes as Ornaments */}
-                <div className="absolute inset-0 z-10 pointer-events-none">
+                <div className="absolute inset-0 z-10">
                     {/* Make children pointer-events-auto */}
-                    {wishes.map((wish, index) => (
-                        <div
-                            key={wish.id}
-                            className="absolute pointer-events-auto" // Enable clicks for individual wishes
-                            style={{
-                                left: `${wish.position?.x}%`,
-                                top: `${wish.position?.y}%`,
-                                transform: 'translate(-50%, -50%)'
-                            }}
-                        >
-                            {/* Ornament Interaction */}
-                            <button
-                                onClick={() => setSelectedWishId(selectedWishId === wish.id ? null : wish.id)}
-                                className={`group relative transition-transform hover:scale-125 flex items-center justify-center text-white z-10`}
-                            >
-                                {/* ORNAMENT RENDER LOGIC */}
-                                {(() => {
-                                    // Index 0 is the Star (The First Wish)
-                                    // Note: wishes are sorted by createdAt desc in the query, so index wishes.length - 1 is the oldest.
-                                    // Wait, query is `orderBy('createdAt', 'desc')`. So array[0] is the NEWEST.
-                                    // User said "ilk dileği asan kişi" (First person to hang it). That means the OLDEST wish.
-                                    // So the Star should be the LAST item in this array (wishes[wishes.length - 1]).
+                    {wishes.map((wish, index) => {
+                        // Let's verify sort order. Line 32: orderBy('createdAt', 'desc').
+                        // Newest is at top (index 0). Oldest is at bottom (index length-1).
+                        // "İlk dileği asan" = The one with oldest timestamp.
+                        // So Star = wishes[wishes.length - 1].
 
-                                    // Let's verify sort order. Line 32: orderBy('createdAt', 'desc').
-                                    // Newest is at top (index 0). Oldest is at bottom (index length-1).
-                                    // "İlk dileği asan" = The one with oldest timestamp.
-                                    // So Star = wishes[wishes.length - 1].
+                        // Sequential types for others:
+                        // We can use the index to determine cyclic styles. 
 
-                                    // Sequential types for others:
-                                    // We can use the index to determine cyclic styles. 
+                        const isFirstWish = index === wishes.length - 1;
 
-                                    const isFirstWish = index === wishes.length - 1;
+                        // If we want the ornaments to be sequential based on creation order, we should Use (wishes.length - 1 - index)
+                        const chronologicalIndex = wishes.length - 1 - index;
+                        const ornamentTypeIndex = (chronologicalIndex - 1) % 6; // -1 because index 0 is star
 
-                                    // If we want the ornaments to be sequential based on creation order, we should Use (wishes.length - 1 - index)
-                                    const chronologicalIndex = wishes.length - 1 - index;
-                                    const ornamentTypeIndex = (chronologicalIndex - 1) % 6; // -1 because index 0 is star
+                        // Render Content Variable
+                        let content;
 
-                                    if (isFirstWish) {
-                                        // 🌟 THE STAR (First Wish)
-                                        return (
-                                            <div className="relative w-12 h-12 md:w-16 md:h-16 flex items-center justify-center filter drop-shadow-[0_0_15px_rgba(255,215,0,0.8)]">
-                                                {/* Star SVG */}
-                                                <svg viewBox="0 0 24 24" fill="url(#starGradient)" className="w-full h-full animate-pulse-slow">
-                                                    <defs>
-                                                        <linearGradient id="starGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                                                            <stop offset="0%" stopColor="#FFF700" />
-                                                            <stop offset="100%" stopColor="#FFD700" />
-                                                        </linearGradient>
-                                                    </defs>
-                                                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
-                                                </svg>
-                                                <span className="absolute text-yellow-900 font-bold text-xs">{wish.nickname.charAt(0).toUpperCase()}</span>
-                                            </div>
-                                        );
-                                    } else {
-                                        // 🎄 6 DISTINCT ORNAMENTS (Rotating)
-                                        // Defining styles for the 6 types
-                                        const styles = [
-                                            'bg-gradient-to-br from-red-500 to-red-700 shadow-red-500/50',        // 1. Red
-                                            'bg-gradient-to-br from-blue-400 to-blue-600 shadow-blue-400/50',     // 2. Blue
-                                            'bg-gradient-to-br from-purple-400 to-purple-600 shadow-purple-500/50', // 3. Purple
-                                            'bg-gradient-to-br from-green-400 to-emerald-600 shadow-green-500/50', // 4. Green
-                                            'bg-gradient-to-br from-pink-400 to-rose-600 shadow-pink-500/50',     // 5. Pink
-                                            'bg-gradient-to-br from-orange-300 to-amber-500 shadow-orange-400/50' // 6. Gold/Orange
-                                        ];
-
-                                        // Safe modulo
-                                        const safeIndex = Math.abs(ornamentTypeIndex) % 6;
-                                        const styleClass = styles[safeIndex];
-
-                                        return (
-                                            <div className={`w-8 h-8 md:w-10 md:h-10 rounded-full ${styleClass} shadow-lg border border-white/20 flex items-center justify-center`}>
-                                                {/* Glossy Reflection */}
-                                                <div className="absolute top-1 right-2 w-2 h-2 bg-white/40 rounded-full blur-[1px]"></div>
-                                                <span className="text-[10px] font-bold drop-shadow-md text-white">{wish.nickname.charAt(0).toUpperCase()}</span>
-                                                {/* Connector String */}
-                                                <div className="absolute -top-4 w-[1px] h-4 bg-white/30"></div>
-                                            </div>
-                                        );
-                                    }
-                                })()}
-                            </button>
-
-                            {/* Popover */}
-                            {selectedWishId === wish.id && (
-                                <div className="absolute bottom-full mb-4 left-1/2 -translate-x-1/2 w-64 bg-white text-slate-900 p-4 rounded-xl shadow-2xl z-50 animate-in zoom-in-95 duration-200 origin-bottom border-2 border-yellow-400/50">
-                                    <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-4 h-4 bg-white rotate-45 border-b-2 border-r-2 border-yellow-400/50"></div>
-
-                                    <div className="flex justify-between items-start mb-2 border-b border-gray-100 pb-2">
-                                        <h3 className="font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-pink-600">
-                                            {wish.nickname}
-                                        </h3>
-                                        <button
-                                            onClick={(e) => { e.stopPropagation(); handleDelete(wish.id); }}
-                                            className="text-gray-400 hover:text-red-500 transition-colors p-1"
-                                            title="Sil"
-                                        >
-                                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
-                                                <path fillRule="evenodd" d="M8.75 1A2.75 2.75 0 0 0 6 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 1 0 .23 1.482l.149-.022.841 10.518A2.75 2.75 0 0 0 7.596 19h4.807a2.75 2.75 0 0 0 2.742-2.53l.841-10.52.149.023a.75.75 0 0 0 .23-1.482A41.03 41.03 0 0 0 14 4.193V3.75A2.75 2.75 0 0 0 11.25 1h-2.5ZM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4ZM8.58 7.72a.75.75 0 0 0-1.5.06l.3 7.5a.75.75 0 1 0 1.5-.06l-.3-7.5Zm4.34.06a.75.75 0 1 0-1.5-.06l-.3 7.5a.75.75 0 0 0 1.5.06l.3-7.5Z" clipRule="evenodd" />
-                                            </svg>
-                                        </button>
-                                    </div>
-
-                                    <p className="text-sm font-medium leading-relaxed text-gray-600 italic">
-                                        "{wish.message}"
-                                    </p>
+                        if (isFirstWish) {
+                            // 🌟 THE STAR (First Wish)
+                            content = (
+                                <div className="relative w-12 h-12 md:w-16 md:h-16 flex items-center justify-center filter drop-shadow-[0_0_15px_rgba(255,215,0,0.8)] cursor-move hover:scale-110 transition-transform">
+                                    {/* Star SVG */}
+                                    <svg viewBox="0 0 24 24" fill="url(#starGradient)" className="w-full h-full animate-pulse-slow">
+                                        <defs>
+                                            <linearGradient id="starGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                                                <stop offset="0%" stopColor="#FFF700" />
+                                                <stop offset="100%" stopColor="#FFD700" />
+                                            </linearGradient>
+                                        </defs>
+                                        <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+                                    </svg>
+                                    <span className="absolute text-yellow-900 font-bold text-xs pointer-events-none select-none">{wish.nickname.charAt(0).toUpperCase()}</span>
                                 </div>
-                            )}
-                        </div>
-                    ))}
+                            );
+                        } else {
+                            // 🎄 6 DISTINCT ORNAMENTS (VIVID CLOLORS)
+                            const styles = [
+                                'bg-gradient-to-br from-red-600 to-red-800 shadow-[0_0_15px_rgba(220,38,38,0.8)] border-red-400',       // 1. Vibrant Red
+                                'bg-gradient-to-br from-blue-500 to-blue-700 shadow-[0_0_15px_rgba(59,130,246,0.8)] border-blue-400',    // 2. Electric Blue
+                                'bg-gradient-to-br from-purple-500 to-purple-700 shadow-[0_0_15px_rgba(168,85,247,0.8)] border-purple-400', // 3. Deep Purple
+                                'bg-gradient-to-br from-green-500 to-emerald-700 shadow-[0_0_15px_rgba(34,197,94,0.8)] border-green-400', // 4. Bright Green
+                                'bg-gradient-to-br from-pink-500 to-rose-700 shadow-[0_0_15px_rgba(236,72,153,0.8)] border-pink-400',     // 5. Hot Pink
+                                'bg-gradient-to-br from-amber-400 to-yellow-600 shadow-[0_0_15px_rgba(245,158,11,0.8)] border-yellow-300' // 6. Rich Gold
+                            ];
+                            const safeIndex = Math.abs(ornamentTypeIndex) % 6;
+                            const styleClass = styles[safeIndex];
+
+                            content = (
+                                <div className={`w-8 h-8 md:w-10 md:h-10 rounded-full ${styleClass} shadow-lg border-2 flex items-center justify-center cursor-move hover:scale-125 transition-transform duration-300`}>
+                                    <div className="absolute top-1 right-2 w-2 h-2 bg-white/60 rounded-full blur-[0.5px]"></div>
+                                    <span className="text-[12px] font-black drop-shadow-[0_2px_2px_rgba(0,0,0,0.8)] text-white select-none">{wish.nickname.charAt(0).toUpperCase()}</span>
+                                    <div className="absolute -top-4 w-[1px] h-4 bg-yellow-100/50 pointer-events-none"></div>
+                                </div>
+                            );
+                        }
+
+                        return (
+                            <div
+                                key={wish.id}
+                                className="absolute z-20"
+                                style={{
+                                    left: `${wish.position?.x}%`,
+                                    top: `${wish.position?.y}%`,
+                                    transform: 'translate(-50%, -50%)',
+                                    cursor: draggingId === wish.id ? 'grabbing' : 'grab',
+                                    userSelect: 'none'
+                                }}
+                                onMouseDown={(e) => handleDragStart(e, wish.id)}
+                                onTouchStart={(e) => handleDragStart(e, wish.id)}
+                            >
+                                <div onClick={() => {
+                                    if (!draggingId) setSelectedWishId(selectedWishId === wish.id ? null : wish.id);
+                                }}>
+                                    {content}
+                                </div>
+
+                                {/* Popover */}
+                                {selectedWishId === wish.id && !draggingId && (
+                                    <div className="absolute bottom-full mb-4 left-1/2 -translate-x-1/2 w-64 bg-white text-slate-900 p-4 rounded-xl shadow-2xl z-50 animate-in zoom-in-95 duration-200 origin-bottom border-2 border-yellow-400/50 cursor-auto"
+                                        onMouseDown={(e) => e.stopPropagation()}
+                                        onTouchStart={(e) => e.stopPropagation()}
+                                    >
+                                        <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-4 h-4 bg-white rotate-45 border-b-2 border-r-2 border-yellow-400/50"></div>
+
+                                        <div className="flex justify-between items-start mb-2 border-b border-gray-100 pb-2">
+                                            <h3 className="font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-pink-600">
+                                                {wish.nickname}
+                                            </h3>
+                                            <button
+                                                onClick={(e) => { e.stopPropagation(); handleDelete(wish.id); }}
+                                                className="text-gray-400 hover:text-red-500 transition-colors p-1"
+                                                title="Sil"
+                                            >
+                                                🗑️
+                                            </button>
+                                        </div>
+
+                                        <p className="text-sm font-medium leading-relaxed text-gray-600 italic">
+                                            "{wish.message}"
+                                        </p>
+                                    </div>
+                                )}
+                            </div>
+                        );
+                    })}
                 </div>
             </div>
 
