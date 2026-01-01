@@ -1,26 +1,19 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import PhotoUploader from './PhotoUploader';
 
-const THEMES = [
-    { id: 'romantic', name: '💖 Romantik', color: 'from-pink-500 to-rose-500', song: 'romantic' },
-    { id: 'funny', name: '🤡 Komik & Eğlenceli', color: 'from-yellow-400 to-orange-500', song: 'funny' },
-    { id: 'exciting', name: '🚀 Heyecanlı & Hızlı', color: 'from-blue-500 to-purple-600', song: 'exciting' },
-];
-
-const SURPRISE_IMAGES = {
-    funny: [
-        'https://media1.giphy.com/media/v1.Y2lkPTc5MGI3NjExcGZ4eWx5eXl5eXl5eXl5eXl5eXl5eXl5eXl5eXl5eXl5/3o7TKSjRrfIPjeiVyM/giphy.gif', // Cat meme (placeholder)
-        'https://cdn-icons-png.flaticon.com/512/742/742751.png', // Clown
-    ],
-    romantic: [
-        'https://cdn-icons-png.flaticon.com/512/1077/1077035.png', // Heart 
-    ],
-    exciting: []
-};
+// Types for our Particle Engine
+interface Particle {
+    x: number;
+    y: number;
+    vx: number;
+    vy: number;
+    life: number;
+    color: string;
+    size: number;
+}
 
 const ClipStudio: React.FC = () => {
     const [photos, setPhotos] = useState<string[]>([]);
-    const [selectedTheme, setSelectedTheme] = useState(THEMES[1]); // Default Funny
     const [status, setStatus] = useState<'idle' | 'preview' | 'recording' | 'finished'>('idle');
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const previewLoopRef = useRef<number>(0);
@@ -30,109 +23,144 @@ const ClipStudio: React.FC = () => {
         setPhotos((prev) => [...prev, ...newPhotos]);
     };
 
-    // The rendering logic separated for reuse
-    const renderFrame = (ctx: CanvasRenderingContext2D, elapsed: number, theme: string, images: string[], width: number, height: number) => {
-        // Clear
-        ctx.fillStyle = '#000';
-        ctx.fillRect(0, 0, width, height);
-
-        let durationPerPhoto = 2000;
-        if (theme === 'exciting') durationPerPhoto = 1000;
-
-        const totalIndex = Math.floor(elapsed / durationPerPhoto);
-        const photoIndex = totalIndex % images.length;
-
-        const img = new Image();
-        img.src = images[photoIndex];
-
-        // Basic "Cover" fit
-        if (img.complete && img.naturalWidth > 0) {
-            const scale = Math.max(width / img.naturalWidth, height / img.naturalHeight);
-            const x = (width / 2) - (img.naturalWidth / 2) * scale;
-            const y = (height / 2) - (img.naturalHeight / 2) * scale;
-
-            // Apply Theme Effects
-            ctx.save();
-            if (theme === 'romantic') {
-                ctx.globalAlpha = 1 - (elapsed % durationPerPhoto) / durationPerPhoto * 0.2; // Pulse opacity
-                ctx.drawImage(img, x, y, img.naturalWidth * scale, img.naturalHeight * scale);
-
-                // Random Surprise Image overlay
-                if (photoIndex % 2 === 0 && SURPRISE_IMAGES.romantic.length > 0) {
-                    const heartImg = new Image();
-                    heartImg.src = SURPRISE_IMAGES.romantic[0];
-                    if (heartImg.complete) ctx.drawImage(heartImg, 50, 50, 100, 100);
-                }
-                // Overlay Text
-                ctx.font = "100px Arial";
-                ctx.fillText("❤️", width - 150, 100);
-
-            } else if (theme === 'funny') {
-                // Random shake
-                const shakeX = Math.random() * 10 - 5;
-                const shakeY = Math.random() * 10 - 5;
-                ctx.drawImage(img, x + shakeX, y + shakeY, img.naturalWidth * scale, img.naturalHeight * scale);
-
-                // Occasional Surprise Overlay (every 3rd photo)
-                if (totalIndex % 3 === 0 && SURPRISE_IMAGES.funny.length > 0) {
-                    const surpriseImg = new Image();
-                    // Pick random surprise
-                    surpriseImg.src = SURPRISE_IMAGES.funny[totalIndex % SURPRISE_IMAGES.funny.length];
-                    if (surpriseImg.complete) ctx.drawImage(surpriseImg, width - 200, height - 200, 150, 150);
-                }
-            } else {
-                // Normal zoom
-                const zoom = 1 + ((elapsed % durationPerPhoto) / durationPerPhoto) * 0.1;
-                ctx.translate(width / 2, height / 2);
-                ctx.scale(zoom, zoom);
-                ctx.translate(-width / 2, -height / 2);
-                ctx.drawImage(img, x, y, img.naturalWidth * scale, img.naturalHeight * scale);
-            }
-            ctx.restore();
+    // --- PARTICLE ENGINE LOGIC ---
+    const createParticles = (width: number, height: number): Particle[] => {
+        const particles: Particle[] = [];
+        const count = 300; // Manageable count for recording performance
+        for (let i = 0; i < count; i++) {
+            particles.push({
+                x: Math.random() * width,
+                y: Math.random() * height,
+                vx: (Math.random() - 0.5) * 15,
+                vy: (Math.random() - 0.5) * 15,
+                life: 0,
+                color: Math.random() > 0.5 ? '#FFD700' : '#FFFFFF', // Gold and White
+                size: Math.random() * 3 + 1
+            });
         }
-
-        // Border / Frame
-        ctx.strokeStyle = theme === 'romantic' ? 'pink' : theme === 'exciting' ? 'cyan' : 'yellow';
-        ctx.lineWidth = 10;
-        ctx.strokeRect(0, 0, width, height);
+        return particles;
     };
 
-    // Ensure music plays during preview
     const startPreview = () => {
         if (!canvasRef.current || photos.length === 0) return;
         setStatus('preview');
 
-        // Mix in surprise photos if funny
-        let processedPhotos = [...photos];
-        // In a real implementation we would insert the surprise images into the array
-        // properly rather than just overlaying them, but the overlay approach works for simple demo.
+        // Default nice ambient music
+        const audio = new Audio('https://cdn.pixabay.com/download/audio/2022/05/27/audio_1808fbf87a.mp3'); // "Cinematic Atmosphere"
+        audio.volume = 0.5;
+        audio.play().catch(e => console.log("Audio play failed (user interaction needed)", e));
+        (canvasRef.current as any).previewAudio = audio;
 
-        // Mute background music for clip preview
-        // (In a real app, we would talk to the global music player to pause it)
-
-        const startTime = Date.now();
         const ctx = canvasRef.current.getContext('2d');
         if (!ctx) return;
 
-        // Start Theme Music
-        // Note: In browsers, we need user interaction to start audio context. 
-        // This function is triggered by a button click, so it should work.
+        const width = canvasRef.current.width;
+        const height = canvasRef.current.height;
 
-        // Simple HTML Audio for theme music
-        const audio = new Audio();
-        if (selectedTheme.id === 'romantic') audio.src = 'https://cdn.pixabay.com/download/audio/2022/11/22/audio_febc508520.mp3'; // Gentle
-        else if (selectedTheme.id === 'funny') audio.src = 'https://cdn.pixabay.com/download/audio/2022/01/18/audio_d0a13f69d2.mp3'; // Upbeat
-        else audio.src = 'https://cdn.pixabay.com/download/audio/2022/10/25/audio_1012809624.mp3'; // Action
+        // Animation constants
+        const PHOTO_DURATION = 3000; // 3 seconds visible
+        const TRANSITION_DURATION = 1500; // 1.5 seconds explosion
+        const particles = createParticles(width, height);
 
-        audio.volume = 0.5;
-        audio.play().catch(e => console.log("Clone music play error", e));
-
-        // Store audio to stop it later
-        (canvasRef.current as any).previewAudio = audio;
+        const startTime = Date.now();
 
         const loop = () => {
-            const elapsed = Date.now() - startTime;
-            renderFrame(ctx, elapsed, selectedTheme.id, processedPhotos, canvasRef.current!.width, canvasRef.current!.height);
+            const now = Date.now();
+            const totalElapsed = now - startTime;
+
+            // Calculate which photo we are on
+            const totalCycle = PHOTO_DURATION + TRANSITION_DURATION;
+            const cycleIndex = Math.floor(totalElapsed / totalCycle);
+            const cycleTime = totalElapsed % totalCycle;
+
+            // Stop if we showed all photos
+            if (cycleIndex >= photos.length) {
+                stopPreview();
+                return; // End loop
+            }
+
+            // Current & Next Image
+            const currentImgSrc = photos[cycleIndex];
+            const nextImgSrc = photos[(cycleIndex + 1) % photos.length]; // Loop back to start for next
+
+            const currentImg = new Image(); currentImg.src = currentImgSrc;
+            const nextImg = new Image(); nextImg.src = nextImgSrc;
+
+            // --- DRAWING ---
+            ctx.fillStyle = '#000';
+            ctx.fillRect(0, 0, width, height);
+
+            // Helper to draw an image 'cover' style
+            const drawImageCover = (img: HTMLImageElement, opacity: number = 1) => {
+                if (!img.complete || img.naturalWidth === 0) return;
+                const scale = Math.max(width / img.naturalWidth, height / img.naturalHeight);
+                const x = (width / 2) - (img.naturalWidth / 2) * scale;
+                const y = (height / 2) - (img.naturalHeight / 2) * scale;
+
+                ctx.save();
+                ctx.globalAlpha = opacity;
+                ctx.drawImage(img, x, y, img.naturalWidth * scale, img.naturalHeight * scale);
+                ctx.restore();
+            };
+
+            if (cycleTime < PHOTO_DURATION) {
+                // STABLE PHASE: Just show the photo
+                // Slight slow zoom effect for "Premium" feel
+                const zoom = 1 + (cycleTime / PHOTO_DURATION) * 0.05;
+                ctx.save();
+                ctx.translate(width / 2, height / 2);
+                ctx.scale(zoom, zoom);
+                ctx.translate(-width / 2, -height / 2);
+                drawImageCover(currentImg);
+                ctx.restore();
+
+                // Reset particles for next explosion
+                particles.forEach(p => {
+                    p.x = width / 2;
+                    p.y = height / 2;
+                    p.life = 0;
+                });
+
+            } else {
+                // EXPLOSION PHASE (Transition)
+                // 1. Draw Next Photo (Background)
+                drawImageCover(nextImg);
+
+                // 2. Draw Current Photo fading out rapidly
+                const transProgress = (cycleTime - PHOTO_DURATION) / TRANSITION_DURATION;
+                drawImageCover(currentImg, 1 - transProgress);
+
+                // 3. Render Particles Exploding
+                ctx.save();
+                particles.forEach((p, i) => {
+                    // Update
+                    p.life = transProgress;
+                    p.x += p.vx * (1 + transProgress * 5); // Accelerate
+                    p.y += p.vy * (1 + transProgress * 5);
+
+                    // Draw Star/Snowflake
+                    ctx.globalAlpha = 1 - transProgress; // Fade out
+                    ctx.fillStyle = p.color;
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, p.size * (1 - transProgress), 0, Math.PI * 2);
+                    ctx.fill();
+
+                    // Sparkle
+                    if (Math.random() > 0.9) {
+                        ctx.shadowBlur = 10;
+                        ctx.shadowColor = 'white';
+                        ctx.fillRect(p.x, p.y, p.size * 2, p.size * 2);
+                        ctx.shadowBlur = 0;
+                    }
+                });
+                ctx.restore();
+            }
+
+            // Frame
+            ctx.strokeStyle = '#c0a062'; // Gold border
+            ctx.lineWidth = 20;
+            ctx.strokeRect(0, 0, width, height);
+
             previewLoopRef.current = requestAnimationFrame(loop);
         };
         loop();
@@ -159,83 +187,79 @@ const ClipStudio: React.FC = () => {
     };
 
     const downloadVideo = () => {
-        if (!canvasRef.current) return;
+        if (!canvasRef.current || photos.length === 0) return;
         setStatus('recording');
 
-        const stream = canvasRef.current.captureStream(30);
-        const mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm' });
-        const chunks: Blob[] = [];
+        // Re-trigger start preview for the recorder to capture it
+        // Note: In a real app we might want to separate logic, but this simplifies sync
+        stopPreview();
 
-        mediaRecorder.ondataavailable = (e) => {
-            if (e.data.size > 0) chunks.push(e.data);
-        };
-
-        mediaRecorder.onstop = () => {
-            const blob = new Blob(chunks, { type: 'video/webm' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `yilbasi_klibi_${selectedTheme.id}_2026.webm`;
-            a.click();
-            setStatus('finished');
-            setTimeout(() => setStatus('idle'), 3000);
-        };
-
-        mediaRecorder.start();
-
-        // Record for 1 cycle of photos or max 15 seconds
         setTimeout(() => {
-            mediaRecorder.stop();
-        }, photos.length * 2000 + 1000);
+            startPreview();
+            const stream = canvasRef.current!.captureStream(30);
+            const mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm' });
+            const chunks: Blob[] = [];
+
+            mediaRecorder.ondataavailable = (e) => {
+                if (e.data.size > 0) chunks.push(e.data);
+            };
+
+            mediaRecorder.onstop = () => {
+                const blob = new Blob(chunks, { type: 'video/webm' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `yilbasi_anis_2026.webm`;
+                a.click();
+                setStatus('finished');
+                stopPreview(); // Stop loop after recording
+                setTimeout(() => setStatus('idle'), 3000);
+            };
+
+            mediaRecorder.start();
+
+            // Calculate Total Duration: (Show + Transition) * Count
+            const TOTAL_DURATION = (3000 + 1500) * photos.length;
+
+            setTimeout(() => {
+                mediaRecorder.stop();
+            }, TOTAL_DURATION + 500); // 500ms buffer
+        }, 100);
     };
 
     return (
         <div className="w-full max-w-5xl mx-auto p-8 bg-slate-800/80 backdrop-blur-xl rounded-[3rem] border border-white/20 mt-24 mb-24 shadow-2xl relative overflow-hidden">
             {/* Background Decor */}
-            <div className="absolute top-0 right-0 w-64 h-64 bg-purple-500/20 blur-[100px] -z-10"></div>
-            <div className="absolute bottom-0 left-0 w-64 h-64 bg-blue-500/20 blur-[100px] -z-10"></div>
+            <div className="absolute top-0 right-0 w-64 h-64 bg-gold-500/10 blur-[100px] -z-10"></div>
 
             <div className="text-center mb-10">
-                <h2 className="text-4xl md:text-6xl font-script text-transparent bg-clip-text bg-gradient-to-r from-purple-300 via-pink-300 to-purple-300 mb-4 animate-pulse">
-                    🎬 Yönetmen Koltuğu
+                <h2 className="text-4xl md:text-6xl font-script text-transparent bg-clip-text bg-gradient-to-r from-yellow-200 via-yellow-400 to-yellow-200 mb-4 animate-pulse">
+                    ✨ Sihirli Anılar
                 </h2>
                 <p className="text-slate-300 text-lg max-w-2xl mx-auto">
-                    Kendi yeni yıl filmini çek! Fotoğraflarını yükle, sana uygun temayı seç ve sihrin gerçekleşmesini izle.
+                    Fotoğraflarını yükle, yıldız tozu efektiyle büyüleyici bir yeni yıl klibine dönüşsün.
                 </p>
             </div>
 
             <div className="grid lg:grid-cols-12 gap-8">
                 {/* Left: Controls */}
-                <div className="lg:col-span-5 space-y-6">
+                <div className="lg:col-span-4 space-y-6">
                     <PhotoUploader onUpload={handleUpload} />
 
-                    {/* Theme Selector */}
-                    <div className="space-y-3">
-                        <h3 className="text-white font-bold flex items-center gap-2">
-                            🎨 Tema Seç: <span className="text-xs text-purple-300 font-normal">(Müzik ve Efektler buna göre değişir)</span>
-                        </h3>
-                        <div className="grid grid-cols-1 gap-2">
-                            {THEMES.map(theme => (
-                                <button
-                                    key={theme.id}
-                                    onClick={() => setSelectedTheme(theme)}
-                                    className={`p-4 rounded-xl border flex items-center gap-4 transition-all ${selectedTheme.id === theme.id ? `bg-gradient-to-r ${theme.color} border-transparent text-white shadow-lg scale-105` : 'bg-black/40 border-white/10 text-gray-400 hover:bg-white/5'}`}
-                                >
-                                    <div className={`w-4 h-4 rounded-full border-2 ${selectedTheme.id === theme.id ? 'bg-white border-white' : 'border-gray-500'}`}></div>
-                                    <span className="font-bold text-lg">{theme.name}</span>
-                                </button>
-                            ))}
-                        </div>
+                    {/* Info Box */}
+                    <div className="bg-white/5 p-4 rounded-xl border border-white/10 text-sm text-gray-400">
+                        <p>🌟 <strong>Otomatik Efekt:</strong> Fotoğrafların binlerce yıldıza dönüşerek değişecek.</p>
+                        <p className="mt-2">🎵 <strong>Müzik:</strong> Sinematik atmosfer müziği otomatik eklenir.</p>
                     </div>
 
                     {/* Photo List Mini */}
                     {photos.length > 0 && (
                         <div>
                             <div className="flex justify-between items-center mb-2">
-                                <span className="text-sm text-gray-400">{photos.length} Fotoğraf Seçildi</span>
-                                <button onClick={resetClip} className="text-xs text-red-400 hover:text-red-300 underline">Tümünü Temizle</button>
+                                <span className="text-sm text-gray-400">{photos.length} Fotoğraf</span>
+                                <button onClick={resetClip} className="text-xs text-red-400 hover:text-red-300 underline">Temizle</button>
                             </div>
-                            <div className="grid grid-cols-4 md:grid-cols-5 gap-2 max-h-40 overflow-y-auto p-2 bg-black/20 rounded-xl">
+                            <div className="grid grid-cols-4 gap-2 max-h-60 overflow-y-auto p-2 bg-black/20 rounded-xl">
                                 {photos.map((p, i) => (
                                     <div key={i} className="relative group aspect-square">
                                         <img src={p} className="w-full h-full object-cover rounded-lg border border-white/20" />
@@ -253,9 +277,8 @@ const ClipStudio: React.FC = () => {
                 </div>
 
                 {/* Right: Preview & Action */}
-                <div className="lg:col-span-7 flex flex-col gap-6">
-                    {/* ... Canvas Container ... */}
-                    <div className="relative aspect-video bg-black rounded-2xl overflow-hidden border-2 border-white/10 shadow-2xl group">
+                <div className="lg:col-span-8 flex flex-col gap-6">
+                    <div className="relative aspect-video bg-black rounded-2xl overflow-hidden border-4 border-yellow-500/30 shadow-2xl group">
                         <canvas
                             ref={canvasRef}
                             width={1280}
@@ -263,64 +286,52 @@ const ClipStudio: React.FC = () => {
                             className="w-full h-full object-contain"
                         />
 
-                        {/* Overlay Play Button if Idle */}
-                        {status === 'idle' && photos.length > 0 && (
-                            <div className="absolute inset-0 flex items-center justify-center bg-black/40 backdrop-blur-[2px] cursor-pointer" onClick={startPreview}>
-                                <div className="w-20 h-20 bg-white/20 rounded-full flex items-center justify-center border border-white/50 hover:scale-110 transition-transform backdrop-blur-md">
-                                    <div className="w-0 h-0 border-t-[15px] border-t-transparent border-l-[30px] border-l-white border-b-[15px] border-b-transparent ml-2"></div>
+                        {status === 'idle' && (
+                            <div className="absolute inset-0 flex items-center justify-center bg-black/60 cursor-pointer transition-colors hover:bg-black/50" onClick={photos.length > 0 ? startPreview : undefined}>
+                                <div className={`text-center ${photos.length === 0 ? 'opacity-50' : 'opacity-100'}`}>
+                                    <div className="text-6xl mb-4">✨</div>
+                                    <div className="text-2xl font-bold text-white">
+                                        {photos.length === 0 ? 'Fotoğraf Yükleyerek Başla' : 'Önizlemeyi Başlat'}
+                                    </div>
                                 </div>
-                            </div>
-                        )}
-
-                        {status === 'idle' && photos.length === 0 && (
-                            <div className="absolute inset-0 flex items-center justify-center flex-col gap-2 text-white/30">
-                                <span className="text-4xl opacity-50">🎬</span>
-                                <span className="font-bold text-xl">Önizleme Sahnesi</span>
                             </div>
                         )}
                     </div>
 
                     {/* Action Buttons */}
-                    <div className="grid grid-cols-2 gap-4">
-                        {status === 'preview' ? (
+                    <div className="flex gap-4">
+                        {status === 'preview' && (
                             <button
                                 onClick={stopPreview}
-                                className="py-4 rounded-xl bg-orange-600/80 text-white font-bold hover:bg-orange-600 transition-colors flex items-center justify-center gap-2"
+                                className="flex-1 py-4 rounded-xl bg-gray-700 text-white font-bold hover:bg-gray-600 transition-colors"
                             >
-                                ⏸️ Durdur
+                                ⏹️ Durdur
                             </button>
-                        ) : (
-                            <div className="flex gap-2">
-                                <button
-                                    disabled={photos.length === 0}
-                                    onClick={startPreview}
-                                    className="flex-1 py-4 rounded-xl bg-indigo-600 text-white font-bold hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                                >
-                                    ▶️ Başlat
-                                </button>
-                                {photos.length > 0 && (
-                                    <button onClick={resetClip} className="px-4 rounded-xl bg-white/10 text-white hover:bg-white/20" title="Yeni Klip">
-                                        🔄
-                                    </button>
-                                )}
-                            </div>
+                        )}
+
+                        {(status === 'idle' && photos.length > 0) && (
+                            <button
+                                onClick={startPreview}
+                                className="flex-1 py-4 rounded-xl bg-indigo-600 text-white font-bold hover:bg-indigo-500 transition-colors"
+                            >
+                                ▶️ Oynat
+                            </button>
                         )}
 
                         <button
                             disabled={photos.length === 0 || status === 'recording'}
                             onClick={downloadVideo}
-                            className={`py-4 rounded-xl font-bold text-lg shadow-lg flex items-center justify-center gap-2 transition-all ${status === 'recording'
-                                ? 'bg-red-500 text-white animate-pulse'
-                                : 'bg-gradient-to-r from-green-500 to-emerald-600 text-white hover:scale-105 disabled:opacity-50 disabled:scale-100 disabled:saturation-0'
+                            className={`flex-[2] py-4 rounded-xl font-bold text-lg shadow-lg flex items-center justify-center gap-2 transition-all ${status === 'recording'
+                                    ? 'bg-red-500 text-white animate-pulse'
+                                    : 'bg-gradient-to-r from-yellow-500 to-orange-600 text-white hover:scale-105 disabled:opacity-50 disabled:scale-100'
                                 }`}
                         >
-                            {status === 'recording' ? 'Kaydediliyor... 🔴' : status === 'finished' ? 'İndirildi! ✅' : 'Klibi İndir 💾'}
+                            {status === 'recording' ? 'Sihir Yapılıyor... 🎬' : status === 'finished' ? 'Klip İndirildi! ✅' : 'Klibi Oluştur ve İndir 💾'}
                         </button>
                     </div>
                 </div>
             </div>
         </div>
-
     );
 };
 
