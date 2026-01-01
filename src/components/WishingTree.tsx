@@ -164,6 +164,9 @@ const WishingTree: React.FC = () => {
     // Track if a drag actually happened to distinguish click vs drag
     const hasMovedRef = useRef<boolean>(false);
 
+    // Track starting position for threshold calculation
+    const dragStartPosRef = useRef<{ x: number; y: number } | null>(null);
+
     useEffect(() => {
         draggingIdRef.current = draggingId;
     }, [draggingId]);
@@ -173,24 +176,43 @@ const WishingTree: React.FC = () => {
     }, [wishes]);
 
     const handleDragStart = (e: React.MouseEvent | React.TouchEvent, id: string) => {
-        // e.preventDefault(); // Removed to allow Click events to bubble up
         e.stopPropagation();
 
+        const clientX = 'touches' in e ? e.touches[0].clientX : (e as React.MouseEvent).clientX;
+        const clientY = 'touches' in e ? e.touches[0].clientY : (e as React.MouseEvent).clientY;
+
+        dragStartPosRef.current = { x: clientX, y: clientY };
         setDraggingId(id);
-        setSelectedWishId(null);
-        hasMovedRef.current = false; // Reset movement flag
+        // We do NOT nullify selectedWishId here to prevent flickering. 
+        // We let handleClick handle the toggle if it wasn't a drag.
+        // Or if we drag, we close it in GlobalMove once threshold is passed.
+
+        hasMovedRef.current = false;
     };
 
     useEffect(() => {
         // Global event handlers
         const handleGlobalMove = (e: MouseEvent | TouchEvent) => {
-            if (!draggingIdRef.current || !containerRef.current) return;
-
-            // Mark as moved if this handler fires
-            hasMovedRef.current = true;
+            if (!draggingIdRef.current || !containerRef.current || !dragStartPosRef.current) return;
 
             const clientX = 'touches' in e ? e.touches[0].clientX : (e as MouseEvent).clientX;
             const clientY = 'touches' in e ? e.touches[0].clientY : (e as MouseEvent).clientY;
+
+            // Calculate distance moved
+            const dx = clientX - dragStartPosRef.current.x;
+            const dy = clientY - dragStartPosRef.current.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+
+            // Threshold of 5 pixels
+            if (distance < 5 && !hasMovedRef.current) {
+                return; // Treat as click so far
+            }
+
+            // If we exceeded threshold, mark as moved and close any open popover
+            if (!hasMovedRef.current) {
+                hasMovedRef.current = true;
+                setSelectedWishId(null);
+            }
 
             const rect = containerRef.current.getBoundingClientRect();
 
