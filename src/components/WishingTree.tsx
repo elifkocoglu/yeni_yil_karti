@@ -50,12 +50,12 @@ const WishingTree: React.FC = () => {
         if (!nickname.trim() || !message.trim()) return;
 
         try {
-            // Define a tree shape polygon approximation for better placement
-            // Normalizing x,y to 0-100% of the container
-            // Tree is roughly a triangle: Top(50, 10), BottomLeft(10, 90), BottomRight(90, 90)
+            // Optimistic Close: Close immediately for better UX
+            setIsOpen(false);
 
-            const y = Math.random() * 70 + 20; // 20% to 90% from top
-            const spread = (y - 20) * 0.8; // Wider at bottom
+            const y = Math.random() * 60 + 20; // 20% to 80% from top (keep within tree foliage)
+            // Triangle approximation for width
+            const spread = (y - 20) * 0.6;
             const x = 50 + (Math.random() - 0.5) * spread;
 
             const color = ORNAMENT_COLORS[Math.floor(Math.random() * ORNAMENT_COLORS.length)];
@@ -69,9 +69,10 @@ const WishingTree: React.FC = () => {
             });
             setNickname('');
             setMessage('');
-            setIsOpen(false);
+            // setIsOpen(false); // Moved up
         } catch (err) {
             alert("Hata: Dilek gönderilemedi.");
+            setIsOpen(true); // Re-open if failed
         }
     };
 
@@ -91,12 +92,11 @@ const WishingTree: React.FC = () => {
 
             {/* 
           Main Interaction Button 
-          Moved outside the Z-layer complexity to ensure clickability 
       */}
-            <div className="relative z-50 mb-8">
+            <div className="relative z-50 mb-4">
                 <button
                     onClick={() => setIsOpen(true)}
-                    className="px-12 py-5 bg-gradient-to-r from-red-600 to-red-800 text-white text-xl font-bold rounded-full shadow-[0_0_25px_rgba(220,38,38,0.8)] hover:scale-105 hover:shadow-[0_0_35px_rgba(220,38,38,1)] transition-all animate-pulse border-2 border-yellow-400/50"
+                    className="px-8 py-3 bg-gradient-to-r from-red-600 to-red-800 text-white text-lg font-bold rounded-full shadow-[0_0_15px_rgba(220,38,38,0.6)] hover:scale-105 transition-all border border-yellow-400/30"
                 >
                     ✨ Bir Dilek As 🎄
                 </button>
@@ -150,26 +150,21 @@ const WishingTree: React.FC = () => {
             {/* The Tree Visualization */}
             <div className="relative w-full max-w-[500px] aspect-[4/5] flex justify-center items-end">
 
-                {/* Nice SVG Tree Background */}
-                <svg viewBox="0 0 100 120" className="absolute inset-0 w-full h-full drop-shadow-2xl opacity-90" preserveAspectRatio="none">
-                    {/* Trunk */}
-                    <rect x="42" y="100" width="16" height="20" fill="#3E2723" rx="2" />
-
-                    {/* Leaves (Layered Triangles) */}
-                    <path d="M50 10 L80 50 L20 50 Z" fill="#1b5e20" /> {/* Top */}
-                    <path d="M50 30 L85 80 L15 80 Z" fill="#14532d" /> {/* Middle */}
-                    <path d="M50 50 L90 100 L10 100 Z" fill="#052e16" /> {/* Bottom */}
-
-                    {/* Highlights */}
-                    <path d="M50 10 L50 100" stroke="rgba(255,255,255,0.1)" strokeWidth="0.5" />
-                </svg>
+                {/* Realistic Tree Image (Using the uploaded one) */}
+                {/* We use the base parameter in vite config, so /tree_real.png works if placed in public */}
+                <img
+                    src="./tree_real.png"
+                    alt="Yılbaşı Ağacı"
+                    className="absolute inset-0 w-full h-full object-contain filter drop-shadow-2xl opacity-95"
+                />
 
                 {/* Wishes as Ornaments */}
-                <div className="absolute inset-0 z-10">
+                <div className="absolute inset-0 z-10 pointer-events-none">
+                    {/* Make children pointer-events-auto */}
                     {wishes.map((wish) => (
                         <div
                             key={wish.id}
-                            className="absolute"
+                            className="absolute pointer-events-auto" // Enable clicks for individual wishes
                             style={{
                                 left: `${wish.position?.x}%`,
                                 top: `${wish.position?.y}%`,
