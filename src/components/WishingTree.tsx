@@ -91,59 +91,99 @@ const WishingTree: React.FC = () => {
     const [draggingId, setDraggingId] = useState<string | null>(null);
     const containerRef = useRef<HTMLDivElement>(null);
 
+    // Context refs for event handlers
+    const draggingIdRef = useRef<string | null>(null);
+    const wishesRef = useRef<Wish[]>([]);
+
+    // Track if a drag actually happened to distinguish click vs drag
+    const hasMovedRef = useRef<boolean>(false);
+
+    useEffect(() => {
+        draggingIdRef.current = draggingId;
+    }, [draggingId]);
+
+    useEffect(() => {
+        wishesRef.current = wishes;
+    }, [wishes]);
+
     const handleDragStart = (e: React.MouseEvent | React.TouchEvent, id: string) => {
-        // Stop propagation to prevent selecting the button text or triggering other clicks
+        // e.preventDefault(); // Removed to allow Click events to bubble up
         e.stopPropagation();
+
         setDraggingId(id);
-        setSelectedWishId(null); // Close tooltip when dragging starts
+        setSelectedWishId(null);
+        hasMovedRef.current = false; // Reset movement flag
     };
 
-    const handleDragMove = (e: React.MouseEvent | React.TouchEvent) => {
-        if (!draggingId || !containerRef.current) return;
+    useEffect(() => {
+        // Global event handlers
+        const handleGlobalMove = (e: MouseEvent | TouchEvent) => {
+            if (!draggingIdRef.current || !containerRef.current) return;
 
-        // Get coordinates
-        const clientX = 'touches' in e ? e.touches[0].clientX : (e as React.MouseEvent).clientX;
-        const clientY = 'touches' in e ? e.touches[0].clientY : (e as React.MouseEvent).clientY;
+            // Mark as moved if this handler fires
+            hasMovedRef.current = true;
 
-        const rect = containerRef.current.getBoundingClientRect();
+            const clientX = 'touches' in e ? e.touches[0].clientX : (e as MouseEvent).clientX;
+            const clientY = 'touches' in e ? e.touches[0].clientY : (e as MouseEvent).clientY;
 
-        // Calculate percentage position relative to container
-        let x = ((clientX - rect.left) / rect.width) * 100;
-        let y = ((clientY - rect.top) / rect.height) * 100;
+            const rect = containerRef.current.getBoundingClientRect();
 
-        // Clamp values to keep inside tree area mostly
-        x = Math.max(0, Math.min(100, x));
-        y = Math.max(0, Math.min(100, y));
+            // Calculate percentage position
+            let x = ((clientX - rect.left) / rect.width) * 100;
+            let y = ((clientY - rect.top) / rect.height) * 100;
 
-        // Update local state IMMEDIATELY for smoothness
-        setWishes(prev => prev.map(w => w.id === draggingId ? { ...w, position: { x, y } } : w));
-    };
+            x = Math.max(0, Math.min(100, x));
+            y = Math.max(0, Math.min(100, y));
 
-    const handleDragEnd = async () => {
-        if (!draggingId) return;
+            // Update local state
+            setWishes(prev => prev.map(w => w.id === draggingIdRef.current ? { ...w, position: { x, y } } : w));
+        };
 
-        const wish = wishes.find(w => w.id === draggingId);
-        if (wish) {
-            // Save final position to Firestore
-            try {
-                await updateDoc(doc(db, 'wishes', draggingId), {
-                    'position.x': wish.position.x,
-                    'position.y': wish.position.y
-                });
-            } catch (err) {
-                console.error("Update failed", err);
+        const handleGlobalUp = async () => {
+            if (draggingIdRef.current) {
+                const currentId = draggingIdRef.current;
+                const wish = wishesRef.current.find(w => w.id === currentId);
+
+                // Only update Firebase if we actually moved
+                if (wish && hasMovedRef.current) {
+                    try {
+                        await updateDoc(doc(db, 'wishes', currentId), {
+                            'position.x': wish.position.x,
+                            'position.y': wish.position.y
+                        });
+                    } catch (err) {
+                        console.error("Update failed", err);
+                    }
+                }
+                setDraggingId(null);
             }
+        };
+
+        if (draggingId) {
+            window.addEventListener('mousemove', handleGlobalMove);
+            window.addEventListener('mouseup', handleGlobalUp);
+            window.addEventListener('touchmove', handleGlobalMove, { passive: false });
+            window.addEventListener('touchend', handleGlobalUp);
         }
-        setDraggingId(null);
+
+        return () => {
+            window.removeEventListener('mousemove', handleGlobalMove);
+            window.removeEventListener('mouseup', handleGlobalUp);
+            window.removeEventListener('touchmove', handleGlobalMove);
+            window.removeEventListener('touchend', handleGlobalUp);
+        };
+    }, [draggingId]);
+
+    const handleClick = (id: string) => {
+        // Only open tooltip if we didn't drag
+        if (!hasMovedRef.current) {
+            setSelectedWishId(selectedWishId === id ? null : id);
+        }
     };
 
     return (
         <div
             className="relative flex flex-col items-center w-full min-h-screen p-4 overflow-x-hidden"
-            onMouseMove={draggingId ? (e) => handleDragMove(e) : undefined}
-            onTouchMove={draggingId ? (e) => handleDragMove(e) : undefined}
-            onMouseUp={handleDragEnd}
-            onTouchEnd={handleDragEnd}
         >
 
             {/* 
@@ -290,14 +330,13 @@ const WishingTree: React.FC = () => {
                                     top: `${wish.position?.y}%`,
                                     transform: 'translate(-50%, -50%)',
                                     cursor: draggingId === wish.id ? 'grabbing' : 'grab',
-                                    userSelect: 'none'
+                                    userSelect: 'none',
+                                    touchAction: 'none' // Important for touch drag
                                 }}
                                 onMouseDown={(e) => handleDragStart(e, wish.id)}
                                 onTouchStart={(e) => handleDragStart(e, wish.id)}
                             >
-                                <div onClick={() => {
-                                    if (!draggingId) setSelectedWishId(selectedWishId === wish.id ? null : wish.id);
-                                }}>
+                                <div onClick={() => handleClick(wish.id)}>
                                     {content}
                                 </div>
 
