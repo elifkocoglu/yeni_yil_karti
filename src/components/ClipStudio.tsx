@@ -83,10 +83,13 @@ const ClipStudio: React.FC = () => {
     };
 
     return (
-        <div className="w-full max-w-4xl mx-auto p-6 bg-black/40 backdrop-blur-md rounded-3xl border border-white/10 mt-12 mb-24">
-            <h2 className="text-3xl font-script text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-600 mb-6 text-center">
-                🎄 Yeni Yıl Klip Oluşturucu 🎬
-            </h2>
+        <div className="w-full max-w-4xl mx-auto p-6 bg-slate-800/60 backdrop-blur-md rounded-3xl border border-white/10 mt-24 mb-24">
+            <div className="text-center mb-8">
+                <h2 className="text-3xl md:text-5xl font-script text-transparent bg-clip-text bg-gradient-to-r from-purple-300 to-pink-300 mb-2">
+                    Yılbaşı Klibini Oluştur 🎬
+                </h2>
+                <p className="text-slate-300">Fotoğraflarını yükle, videonu indir!</p>
+            </div>
 
             <div className="grid md:grid-cols-2 gap-8">
                 <div>

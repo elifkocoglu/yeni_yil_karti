@@ -118,15 +118,15 @@ const Fireworks: React.FC = () => {
 
             {/* Controls */}
             <div className="fixed top-4 right-4 z-50 flex flex-col items-end gap-2">
-                <div className="text-white/50 text-xs text-right mb-1 pointer-events-none">
-                    Patlatmak için ekrana tıkla! <br />
-                    veya otomatiği aç 👇
+                <div className="text-white font-bold text-sm text-right mb-1 pointer-events-none bg-black/50 px-3 py-1 rounded-lg backdrop-blur-sm border border-white/20 shadow-lg">
+                    🎆 Ekrana Tıkla & Patlat! <br />
+                    <span className="text-xs font-normal opacity-80">veya otomatiği aç 👇</span>
                 </div>
                 <button
                     onClick={() => setIsAuto(!isAuto)}
-                    className={`p-3 rounded-full border border-white/20 transition-all ${isAuto ? 'bg-yellow-500 text-black shadow-[0_0_15px_rgba(234,179,8,0.5)]' : 'bg-black/40 text-white hover:bg-white/10'}`}
+                    className={`p-4 rounded-full border-2 transition-all hover:scale-110 active:scale-95 ${isAuto ? 'bg-yellow-400 border-yellow-200 text-black shadow-[0_0_25px_rgba(250,204,21,0.6)]' : 'bg-black/60 border-white/30 text-white hover:bg-white/20'}`}
                 >
-                    🎆
+                    <span className="text-2xl">⚡</span>
                 </button>
             </div>
         </>
