@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 
 interface Particle {
     x: number;
@@ -13,6 +13,13 @@ const COLORS = ['#FF0000', '#00FF00', '#0000FF', '#FFFF00', '#00FFFF', '#FF00FF'
 
 const Fireworks: React.FC = () => {
     const canvasRef = useRef<HTMLCanvasElement>(null);
+    const [isAuto, setIsAuto] = useState(false);
+    const isAutoRef = useRef(false); // Ref to hold the latest isAuto value for the animation loop
+
+    // Update the ref whenever isAuto state changes
+    useEffect(() => {
+        isAutoRef.current = isAuto;
+    }, [isAuto]);
 
     useEffect(() => {
         const canvas = canvasRef.current;
@@ -55,10 +62,10 @@ const Fireworks: React.FC = () => {
             ctx.globalCompositeOperation = 'lighter';
 
             // Randomly launch fireworks
-            if (Math.random() < 0.05) {
+            if (isAutoRef.current && Math.random() < 0.1) {
                 createFirework(
                     Math.random() * canvas.width,
-                    Math.random() * canvas.height * 0.6 // Top 60% of screen
+                    Math.random() * canvas.height * 0.6
                 );
             }
 
@@ -105,7 +112,25 @@ const Fireworks: React.FC = () => {
         };
     }, []);
 
-    return <canvas ref={canvasRef} className="fixed inset-0 pointer-events-none z-10" style={{ pointerEvents: 'auto', cursor: 'pointer' }} />;
+    return (
+        <>
+            <canvas ref={canvasRef} className="fixed inset-0 pointer-events-none z-10" style={{ pointerEvents: 'auto', cursor: 'pointer' }} />
+
+            {/* Controls */}
+            <div className="fixed top-4 right-4 z-50 flex flex-col items-end gap-2">
+                <div className="text-white/50 text-xs text-right mb-1 pointer-events-none">
+                    Patlatmak için ekrana tıkla! <br />
+                    veya otomatiği aç 👇
+                </div>
+                <button
+                    onClick={() => setIsAuto(!isAuto)}
+                    className={`p-3 rounded-full border border-white/20 transition-all ${isAuto ? 'bg-yellow-500 text-black shadow-[0_0_15px_rgba(234,179,8,0.5)]' : 'bg-black/40 text-white hover:bg-white/10'}`}
+                >
+                    🎆
+                </button>
+            </div>
+        </>
+    );
 };
 
 export default Fireworks;
